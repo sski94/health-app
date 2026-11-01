@@ -20,101 +20,146 @@
   --bg: #F1F1F0; --surface: #FAFAF9; --surface-2: #F4F4F2;
   --ink: #141414; --ink-soft: #6F6F6C; --ink-3: #A7A7A3;
   --hair: rgba(20,20,20,0.08); --fill: rgba(20,20,20,0.05);
-  --teal: #306F75; --on-teal: #FFFFFF;
-  /* Ultrahuman's own tag colours */
+  --teal: #306F75; --on-teal: #FFFFFF; --accent2: #D97A2B;
   --opt: #00B984; --good: #E3CD77; --bad: #F94264; --none: #BDBDB8;
   --opt-ink: #0B7F5C; --good-ink: #7C6B12; --bad-ink: #C42046;
   --c-grid: #E2E2DF; --c-axis: #76766F;
   --s-deep: #306F75; --s-light: #8EC3C0; --s-rem: #949CDD; --s-awake: #D97A2B;
-  --c-hr: #E4527A; --c-hrv: #306F75; --c-temp: #D97A2B; --c-pace: #306F75; --c-alt: #BDBDB8;
-  --nav-h: 56px;
+  --c-hr: #E4527A; --c-hrv: #306F75; --c-temp: #D97A2B; --c-alt: #BDBDB8;
+  --nav-h: 56px; --side-w: 204px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0B0C0C; --surface: #17191A; --surface-2: #202324;
     --ink: #EDEEEC; --ink-soft: #A3A6A2; --ink-3: #6E716D;
     --hair: rgba(237,238,236,0.09); --fill: rgba(237,238,236,0.07);
-    --teal: #6BB9B6; --on-teal: #0B1A1A;
+    --teal: #6BB9B6; --on-teal: #0B1A1A; --accent2: #E8964F;
     --opt-ink: #3FD3A6; --good-ink: #E3CD77; --bad-ink: #FF7A93;
     --c-grid: #2A2D2E; --c-axis: #8E918D;
     --s-deep: #4F9C98; --s-light: #2F6460; --s-rem: #8E96E0; --s-awake: #E8964F;
-    --c-hrv: #6BB9B6; --c-pace: #6BB9B6; --c-alt: #55595B;
+    --c-hrv: #6BB9B6; --c-alt: #55595B;
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; }
-body { background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased;
-  padding-top: env(safe-area-inset-top, 0); }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; padding-top: env(safe-area-inset-top, 0); }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+select, input, textarea { font: inherit; color: var(--ink); background: var(--fill); border: 1px solid var(--hair); border-radius: 10px; padding: 9px 11px; width: 100%; }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .lbl { font: 500 10px/1.2 var(--font-num); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.card { background: var(--surface); border: 1px solid var(--hair); border-radius: 16px; padding: 14px; }
+.sub { color: var(--ink-soft); font-size: 12px; }
+.note { color: var(--ink-soft); font-size: 12px; line-height: 1.45; margin: 8px 2px; }
 
 /* login */
 #login { display: none; min-height: 100dvh; align-items: center; justify-content: center; padding: 24px; }
-.card { background: var(--surface); border: 1px solid var(--hair); border-radius: 18px; padding: 16px; }
 .login-card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; padding: 22px; }
 .login-card h1 { margin: 0; font-size: 26px; font-weight: 700; }
-input { font: inherit; color: var(--ink); background: var(--fill); border: 1px solid var(--hair); border-radius: 12px; padding: 12px 14px; width: 100%; }
-.pill { background: var(--teal); color: var(--on-teal); border-radius: 999px; padding: 12px 18px; font-weight: 600; text-align: center; }
+.pill { background: var(--teal); color: var(--on-teal); border-radius: 999px; padding: 11px 18px; font-weight: 600; text-align: center; }
+.pill.ghost { background: var(--fill); color: var(--ink); }
 .error { color: var(--bad-ink); font-size: 13px; font-weight: 600; min-height: 18px; }
 
 /* shell */
 #app { display: none; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0) + 18px); }
-.page { display: none; padding: 14px 14px 0; max-width: 760px; margin: 0 auto; }
+.page { display: none; padding: 12px 12px 0; max-width: 780px; margin: 0 auto; }
 .page.on { display: block; }
-.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 2px 14px; }
-.head h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
-.sub { color: var(--ink-soft); font-size: 12px; }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 2px 12px; }
+.head h1 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
 .datebar { display: flex; align-items: center; gap: 6px; }
-.iconbtn { width: 34px; height: 34px; border-radius: 999px; background: var(--surface); border: 1px solid var(--hair); display: grid; place-items: center; font-size: 15px; }
+.iconbtn { width: 32px; height: 32px; border-radius: 999px; background: var(--surface); border: 1px solid var(--hair); display: grid; place-items: center; font-size: 15px; }
 .iconbtn[disabled] { opacity: .35; }
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: space-around;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0)); padding-bottom: env(safe-area-inset-bottom, 0);
-  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--hair); }
-#tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--ink-3); font: 500 10px var(--font-num); letter-spacing: .05em; text-transform: uppercase; }
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--hair); }
+#tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--ink-3); font: 500 9px var(--font-num); letter-spacing: .04em; text-transform: uppercase; }
 #tabs button.on { color: var(--ink); }
-#tabs svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#tabs svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#brand { display: none; }
 
-/* score tiles */
-.scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
-.score { padding: 14px 10px 12px; text-align: center; }
-.score .big { font: 600 34px/1 var(--font-num); margin: 8px 0 6px; }
+/* tiles */
+.scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+.score { padding: 12px 8px 10px; text-align: center; }
+.score .big { font: 600 32px/1 var(--font-num); margin: 8px 0 6px; }
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--none); vertical-align: middle; }
 .tag { font: 500 11px var(--font); color: var(--ink-soft); }
 .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.tile { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; text-align: left; width: 100%; }
-.tile .v { font: 600 22px/1.1 var(--font-num); display: flex; align-items: baseline; gap: 5px; }
+.tile { padding: 11px 12px; display: flex; flex-direction: column; gap: 5px; text-align: left; width: 100%; }
+.tile .v { font: 600 21px/1.1 var(--font-num); display: flex; align-items: baseline; gap: 5px; }
 .tile .u { font: 400 12px var(--font); color: var(--ink-soft); }
 .tile .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.tile .foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .delta { font: 500 11px var(--font-num); color: var(--ink-soft); }
-.section { margin: 18px 2px 8px; }
-.empty { padding: 28px 16px; text-align: center; color: var(--ink-soft); font-size: 14px; }
+svg.spark { width: 64px; height: 20px; flex: none; }
+.scorespark { margin-top: 6px; display: flex; justify-content: center; }
+.scorespark svg.spark { width: 90%; height: 26px; }
+.empty { padding: 26px 16px; text-align: center; color: var(--ink-soft); font-size: 14px; }
 
-/* charts */
-.chartcard { padding: 12px 12px 8px; margin-bottom: 12px; }
-.chartcard .top { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 6px; gap: 8px; }
-.chartcard .read { font: 500 12px var(--font-num); color: var(--ink); min-height: 15px; text-align: right; }
+/* charts and controls */
+.chartcard { padding: 11px 11px 6px; margin-bottom: 10px; min-width: 0; }
+.chartcard .top { display: flex; justify-content: space-between; align-items: baseline; margin: 0 3px 4px; gap: 8px; }
+.chartcard .read { font: 500 12px var(--font-num); min-height: 15px; text-align: right; }
 svg.ch { display: block; width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 svg.ch text { font-family: var(--font-num); font-size: 9.5px; fill: var(--c-axis); }
-.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.chip { padding: 6px 11px; border-radius: 999px; background: var(--surface); border: 1px solid var(--hair); font: 500 11px var(--font-num); letter-spacing: .03em; color: var(--ink-soft); }
+svg.ch text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; font-size: 9px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 9px; }
+.chip { padding: 5px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--hair); font: 500 11px var(--font-num); letter-spacing: .02em; color: var(--ink-soft); }
 .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.legend { display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 4px 0; font: 400 11px var(--font); color: var(--ink-soft); }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; margin: 2px 4px 2px; font: 400 11px var(--font); color: var(--ink-soft); }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-
-/* runs */
-.runrow { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 14px; text-align: left; width: 100%; margin-bottom: 8px; }
-.runrow .t { font-weight: 600; font-size: 14px; }
+.ctl { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.ctl input[type=range] { padding: 0; height: 24px; flex: 1; min-width: 120px; accent-color: var(--teal); background: none; border: 0; }
+.ctl .val { font: 600 12px var(--font-num); min-width: 62px; text-align: right; }
+.formrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.formrow.three { grid-template-columns: 1fr 1fr 1fr; }
+.cols { display: grid; gap: 10px; align-items: start; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+.stat { padding: 9px 11px; }
+.stat .v { font: 600 17px var(--font-num); margin-top: 4px; }
+table.t { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.t th { text-align: left; font: 500 10px var(--font-num); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); padding: 4px 6px; }
+table.t td { padding: 6px; border-top: 1px solid var(--hair); }
+table.t td.n { font-family: var(--font-num); text-align: right; white-space: nowrap; }
+table.t tr.click { cursor: pointer; }
+table.t tr.click:hover td { background: var(--fill); }
+.bar { height: 6px; border-radius: 3px; background: var(--fill); position: relative; min-width: 70px; }
+.bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.rate { display: flex; gap: 6px; }
+.rate button { flex: 1; padding: 9px 0; border-radius: 10px; background: var(--fill); border: 1px solid var(--hair); font: 600 14px var(--font-num); }
+.rate button.on { background: var(--teal); color: var(--on-teal); border-color: var(--teal); }
+.runrow { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; padding: 10px 12px; text-align: left; width: 100%; margin-bottom: 7px; }
+.runrow.sel { outline: 2px solid var(--teal); }
+.runrow .t { font-weight: 600; font-size: 13px; }
 .runrow .m { font: 500 12px var(--font-num); color: var(--ink-soft); text-align: right; }
 .runrow .d { color: var(--ink-soft); font-size: 12px; }
 .src { font: 500 9px var(--font-num); letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; background: var(--fill); color: var(--ink-soft); margin-left: 6px; vertical-align: 1px; }
 #detail { position: fixed; inset: 0; z-index: 30; background: var(--bg); overflow-y: auto; display: none; padding-top: env(safe-area-inset-top, 0); }
-#detail .inner { max-width: 760px; margin: 0 auto; padding: 10px 14px calc(30px + env(safe-area-inset-bottom, 0)); }
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
-.stat { padding: 10px 12px; }
-.stat .v { font: 600 18px var(--font-num); margin-top: 4px; }
-.signout { color: var(--ink-3); font: 500 11px var(--font-num); letter-spacing: .05em; text-transform: uppercase; padding: 18px 2px; }
+#detail .inner { max-width: 780px; margin: 0 auto; padding: 10px 12px calc(30px + env(safe-area-inset-bottom, 0)); }
+.signout { color: var(--ink-3); font: 500 11px var(--font-num); letter-spacing: .05em; text-transform: uppercase; padding: 16px 2px; }
+.x { color: var(--ink-3); font-size: 16px; padding: 0 6px; }
+
+/* desktop: left rail, wide pages, multi-column grids */
+@media (min-width: 900px) {
+  body { padding-left: var(--side-w); }
+  #app { padding-bottom: 30px; }
+  #tabs { top: 0; bottom: 0; right: auto; left: 0; width: var(--side-w); height: auto; flex-direction: column; justify-content: flex-start; align-items: stretch;
+    padding: 14px 10px; gap: 2px; border-top: 0; border-right: 1px solid var(--hair); background: var(--surface); backdrop-filter: none; }
+  #brand { display: block; font: 700 17px var(--font); padding: 6px 12px 16px; }
+  #tabs button { flex: none; flex-direction: row; justify-content: flex-start; gap: 11px; padding: 9px 12px; border-radius: 10px; font: 500 13px var(--font); letter-spacing: 0; text-transform: none; color: var(--ink-soft); }
+  #tabs button:hover { background: var(--fill); }
+  #tabs button.on { background: var(--fill); color: var(--ink); }
+  .page { max-width: 1400px; padding: 22px 28px 0; }
+  .head h1 { font-size: 24px; }
+  .scores { grid-template-columns: repeat(3, 1fr); }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .cols.c2 { grid-template-columns: 1fr 1fr; }
+  .cols.c3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cols.side { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); }
+  .cols.act { grid-template-columns: 380px minmax(0, 1fr); }
+  .stats { grid-template-columns: repeat(6, 1fr); }
+  .stats.s3 { grid-template-columns: repeat(3, 1fr); }
+  .chartcard { margin-bottom: 0; }
+  .cols > .card, .cols > div > .card { margin-bottom: 10px; }
+}
 </style>
 </head>
 <body>
@@ -133,12 +178,17 @@ svg.ch text { font-family: var(--font-num); font-size: 9.5px; fill: var(--c-axis
   <section class="page on" id="p-today"></section>
   <section class="page" id="p-sleep"></section>
   <section class="page" id="p-trends"></section>
-  <section class="page" id="p-runs"></section>
+  <section class="page" id="p-compare"></section>
+  <section class="page" id="p-activity"></section>
+  <section class="page" id="p-log"></section>
   <nav id="tabs">
+    <div id="brand">Health</div>
     <button data-tab="today" class="on"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Today</button>
     <button data-tab="sleep"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Sleep</button>
     <button data-tab="trends"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>Trends</button>
-    <button data-tab="runs"><svg viewBox="0 0 24 24"><path d="M13 4a1.5 1.5 0 1 0 0 .01M6 21l3-6 3 2 2-5-3-2-3 2-3-1M14 12l4 2"/></svg>Runs</button>
+    <button data-tab="compare"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="2"/><circle cx="16" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="18" cy="17" r="1.5"/><path d="M3 21V3"/><path d="M3 21h18"/></svg>Compare</button>
+    <button data-tab="activity"><svg viewBox="0 0 24 24"><path d="M13 4a1.5 1.5 0 1 0 0 .01M6 21l3-6 3 2 2-5-3-2-3 2-3-1M14 12l4 2"/></svg>Activity</button>
+    <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Log</button>
   </nav>
 </div>
 <div id="detail"><div class="inner"></div></div>
@@ -152,11 +202,12 @@ svg.ch text { font-family: var(--font-num); font-size: 9.5px; fill: var(--c-axis
   var SUPABASE_URL = 'https://dnwcfrvjqdfledhsvizn.supabase.co';
   var SUPABASE_ANON_KEY = 'sb_publishable_7MbQqqkWKGfMRdi3SdJ_CA_qpFmhbjT';
   var supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  var TZ = 'Europe/London';
+  var Z2 = [125, 145]; // Zone 2 band from the training plan
 
-  // ---------- Bands ----------
-  // Ultrahuman's own labels (stored per day in health_uh_daily.bands) are used wherever the API
-  // supplies one. Headline scores are not banded in the API, so these cut-offs are an assumption:
-  // change them here. (Same convention the old HealthSync notes used.)
+  // ================= Bands =================
+  // Ultrahuman's own labels (stored per day in health_uh_daily.bands) are used wherever the API supplies one.
+  // The three headline scores are not banded in the API, so these cut-offs are an assumption: change them here.
   var SCORE_BANDS = { optimal: 80, good: 60 };
   var COLORS = { opt: 'var(--opt)', good: 'var(--good)', bad: 'var(--bad)', none: 'var(--none)' };
   var LABEL = { opt: 'Optimal', good: 'Good', bad: 'Needs attention', none: '' };
@@ -175,32 +226,59 @@ svg.ch text { font-family: var(--font-num); font-size: 9.5px; fill: var(--c-axis
       case 'temp_dev_c': x = b['contrib:Temperature']; return x ? stateLevel(x.state) : 'none';
     } return 'none'; }
 
-  // ---------- Metrics ----------
-  function hm(min) { if (min == null) return '–'; return Math.floor(min / 60) + 'h ' + String(Math.round(min % 60)).padStart(2, '0') + 'm'; }
-  var M = {
-    sleep_score: { l: 'Sleep score', f: function (v) { return v; } },
-    recovery_index: { l: 'Recovery', f: function (v) { return v; } },
-    movement_index: { l: 'Movement', f: function (v) { return v; } },
-    sleep_rhr: { l: 'Resting HR', u: 'bpm', f: function (v) { return v; }, better: -1 },
-    avg_hrv: { l: 'HRV', u: 'ms', f: function (v) { return v; }, better: 1 },
-    avg_hr: { l: 'Avg HR (sleep)', u: 'bpm', f: function (v) { return v; } },
-    total_sleep_min: { l: 'Total sleep', f: hm, better: 1 },
-    time_in_bed_min: { l: 'Time in bed', f: hm },
-    efficiency: { l: 'Efficiency', u: '%', f: function (v) { return v; }, better: 1 },
-    restorative_pct: { l: 'Restorative', u: '%', f: function (v) { return v; }, better: 1 },
-    deep_min: { l: 'Deep sleep', f: hm }, rem_min: { l: 'REM sleep', f: hm },
-    light_min: { l: 'Light sleep', f: hm }, awake_min: { l: 'Awake', f: hm },
-    steps: { l: 'Steps', f: function (v) { return Number(v).toLocaleString('en-GB'); }, better: 1 },
-    vo2_max: { l: 'VO2 max', f: function (v) { return v; } },
-    spo2: { l: 'SpO2 (avg)', u: '%', f: function (v) { return v; } },
-    temp_dev_c: { l: 'Skin temp', u: '°C', f: function (v) { return (v > 0 ? '+' : '') + Number(v).toFixed(1); } },
-    avg_body_temp_c: { l: 'Body temp', u: '°C', f: function (v) { return Number(v).toFixed(1); } }
-  };
+  // ================= Metrics =================
+  function hm(min) { if (min == null) return '-'; min = Math.round(min); return Math.floor(min / 60) + 'h ' + String(min % 60).padStart(2, '0') + 'm'; }
+  function r0(v) { return Math.round(v); }
+  function r1(v) { return Number(v).toFixed(1); }
+  function clock(v) { v = ((v % 24) + 24) % 24; var h_ = Math.floor(v), m_ = Math.round((v - h_) * 60); if (m_ === 60) { h_ = (h_ + 1) % 24; m_ = 0; } return String(h_).padStart(2, '0') + ':' + String(m_).padStart(2, '0'); }
+  function paceStr(s) { return Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'); }
+  // group: uh (daily from Ultrahuman), load (from activities), ci (check-in). better: +1 higher is better, -1 lower is better.
+  var MET = [
+    { k: 'sleep_score', l: 'Sleep score', f: r0, better: 1, g: 'Sleep' },
+    { k: 'recovery_index', l: 'Recovery', f: r0, better: 1, g: 'Scores' },
+    { k: 'movement_index', l: 'Movement', f: r0, better: 1, g: 'Scores' },
+    { k: 'avg_hrv', l: 'HRV', u: 'ms', f: r0, better: 1, g: 'Heart' },
+    { k: 'sleep_rhr', l: 'Resting HR', u: 'bpm', f: r0, better: -1, g: 'Heart' },
+    { k: 'avg_hr', l: 'Avg HR (sleep)', u: 'bpm', f: r0, g: 'Heart' },
+    { k: 'total_sleep_min', l: 'Total sleep', f: hm, better: 1, g: 'Sleep' },
+    { k: 'time_in_bed_min', l: 'Time in bed', f: hm, g: 'Sleep' },
+    { k: 'efficiency', l: 'Sleep efficiency', u: '%', f: r0, better: 1, g: 'Sleep' },
+    { k: 'restorative_pct', l: 'Restorative', u: '%', f: r0, better: 1, g: 'Sleep' },
+    { k: 'deep_min', l: 'Deep sleep', f: hm, g: 'Sleep' },
+    { k: 'rem_min', l: 'REM sleep', f: hm, g: 'Sleep' },
+    { k: 'light_min', l: 'Light sleep', f: hm, g: 'Sleep' },
+    { k: 'awake_min', l: 'Awake in bed', f: hm, better: -1, g: 'Sleep' },
+    { k: 'cycles_full', l: 'Sleep cycles', f: r0, g: 'Sleep' },
+    { k: 'bedtime', l: 'Bedtime', f: clock, g: 'Sleep' },
+    { k: 'wake', l: 'Wake time', f: clock, g: 'Sleep' },
+    { k: 'temp_dev_c', l: 'Skin temp vs usual', u: '°C', f: function (v) { return (v > 0 ? '+' : '') + r1(v); }, g: 'Body' },
+    { k: 'avg_body_temp_c', l: 'Body temp', u: '°C', f: r1, g: 'Body' },
+    { k: 'spo2', l: 'SpO2 (avg)', u: '%', f: r0, g: 'Body' },
+    { k: 'vo2_max', l: 'VO2 max', f: r0, better: 1, g: 'Fitness' },
+    { k: 'steps', l: 'Steps', f: function (v) { return Math.round(v).toLocaleString('en-GB'); }, better: 1, g: 'Activity' },
+    { k: 'run_km', l: 'Run distance (day)', u: 'km', f: r1, sum: true, g: 'Training' },
+    { k: 'run_km_7d', l: 'Run km, last 7 days', u: 'km', f: r1, g: 'Training' },
+    { k: 'run_km_28d', l: 'Run km per week, last 28 days', u: 'km', f: r1, g: 'Training' },
+    { k: 'ride_km', l: 'Ride distance (day)', u: 'km', f: r1, sum: true, g: 'Training' },
+    { k: 'ride_km_7d', l: 'Ride km, last 7 days', u: 'km', f: r1, g: 'Training' },
+    { k: 'active_min', l: 'Training time (day)', u: 'min', f: r0, sum: true, g: 'Training' },
+    { k: 'active_min_7d', l: 'Training min, last 7 days', u: 'min', f: r0, g: 'Training' },
+    { k: 'climb_m', l: 'Climbing (day)', u: 'm', f: r0, sum: true, g: 'Training' },
+    { k: 'mood', l: 'Mood', f: r1, better: 1, g: 'Check-in' },
+    { k: 'stress', l: 'Stress', f: r1, better: -1, g: 'Check-in' },
+    { k: 'energy', l: 'Energy', f: r1, better: 1, g: 'Check-in' }
+  ];
+  var MK = {}; MET.forEach(function (m) { MK[m.k] = m; });
+  var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'mood', 'stress', 'energy'];
 
-  // ---------- State ----------
-  var S = { daily: [], byDate: {}, acts: [], date: null, trendKey: 'sleep_score', range: 90, nightCache: {} };
+  // ================= State =================
+  var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, date: null, nightCache: {},
+    trendKey: 'avg_hrv', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
+    cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60 };
+  try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; } catch (e) {}
+  function savePrefs() { try { localStorage.setItem('health.prefs', JSON.stringify({ sm: S.sm, showEvents: S.showEvents })); } catch (e) {} }
 
-  // ---------- DOM helpers ----------
+  // ================= Helpers =================
   function $(id) { return document.getElementById(id); }
   function h(tag, attrs, kids) { var e = document.createElement(tag);
     for (var k in (attrs || {})) { if (k === 'class') e.className = attrs[k]; else if (k === 'html') e.innerHTML = attrs[k];
@@ -208,219 +286,371 @@ svg.ch text { font-family: var(--font-num); font-size: 9.5px; fill: var(--c-axis
     (kids || []).forEach(function (c) { if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }); return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function dot(level) { return '<span class="dot" style="background:' + COLORS[level] + '"></span>'; }
-  function fmtDay(ds) { var d = new Date(ds + 'T12:00:00'); return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); }
-  function addDays(ds, n) { var d = new Date(ds + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
-  function tzTime(ts, tz) { return new Date(ts * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz || 'Europe/London' }); }
-  function avg(a) { a = a.filter(function (x) { return x != null; }); return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : null; }
-  function recent(key, date, n) { var out = []; for (var i = 1; i <= n; i++) { var r = S.byDate[addDays(date, -i)]; if (r && r[key] != null) out.push(Number(r[key])); } return out; }
+  function dayNum(ds) { return Math.floor(Date.parse(ds + 'T12:00:00Z') / 864e5); }
+  function dayStr(n) { return new Date(n * 864e5).toISOString().slice(0, 10); }
+  function addDays(ds, n) { return dayStr(dayNum(ds) + n); }
+  function fmtDay(ds) { return new Date(ds + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
+  function fmtShort(n) { return new Date(n * 864e5).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' }); }
+  function localDate(iso) { return new Date(iso).toLocaleDateString('en-CA', { timeZone: TZ }); }
+  function tzTime(ts, tz) { return new Date(ts * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz || TZ }); }
+  function avg(a) { a = a.filter(function (x) { return x != null && !isNaN(x); }); return a.length ? a.reduce(function (s, x) { return s + x; }, 0) / a.length : null; }
+  function sd(a, m) { a = a.filter(function (x) { return x != null; }); if (a.length < 2) return null; m = m == null ? avg(a) : m; return Math.sqrt(a.reduce(function (s, x) { return s + (x - m) * (x - m); }, 0) / (a.length - 1)); }
+  function dur(s) { var h_ = Math.floor(s / 3600), m_ = Math.floor(s % 3600 / 60), ss = Math.round(s % 60); return (h_ ? h_ + ':' + String(m_).padStart(2, '0') : m_) + ':' + String(ss).padStart(2, '0'); }
+  function chgText(k, diff, pct) { return k === 'temp_dev_c' ? (diff >= 0 ? '+' : '') + diff.toFixed(2) + '\u00a0\u00b0C' : (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%'; }
+  function fmtMetric(k, v) { var m = MK[k]; return v == null ? '-' : (m.f(v) + (m.u && m.f !== hm ? ' ' + m.u : '')); }
+  function toast(msg) { var t = h('div', { style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:13px;z-index:50' }, [msg]); document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200); }
 
-  // ---------- Chart kit (SVG, no dependencies) ----------
+  // ================= Derived daily table =================
+  function sportKind(a) { var s = String(a.sport || '').toLowerCase(); return /run/.test(s) ? 'run' : /ride|cycl|bike/.test(s) ? 'ride' : 'other'; }
+  function buildTable() {
+    var rows = S.daily; S.D = {}; S.dates = [];
+    if (!rows.length) return;
+    var first = rows[0].date, last = rows[rows.length - 1].date; if (S.acts.length) { var lastAct = localDate(S.acts[0].start_time); if (lastAct > last) last = lastAct; }
+    // coverage: which days each source can speak for
+    var sAct = S.acts.filter(function (a) { return a.source === 'strava'; }).map(function (a) { return localDate(a.start_time); }).sort();
+    var gAct = S.acts.filter(function (a) { return a.source === 'garmin'; }).map(function (a) { return localDate(a.start_time); }).sort();
+    var sMin = sAct[0], sMax = sAct[sAct.length - 1], gMin = gAct[0];
+    function covRun(d) { return (sMin && d >= sMin && d <= sMax) || (gMin && d >= gMin); }
+    function covAll(d) { return sMin && d >= sMin && d <= sMax; }
+    var perDay = {};
+    S.acts.forEach(function (a) { var d = localDate(a.start_time), o = perDay[d] || (perDay[d] = { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0 }), km = (a.distance_m || 0) / 1000, mn = (a.moving_time_s || 0) / 60;
+      var k = sportKind(a); if (k === 'run') o.run_km += km; if (k === 'ride') o.ride_km += km; o.active_min += mn; o.climb_m += Number(a.elevation_gain_m || 0); });
+    var n0 = dayNum(first), n1 = dayNum(last), byDate = S.byDate;
+    for (var n = n0; n <= n1; n++) { var d = dayStr(n), u = byDate[d] || {}, o = {};
+      MET.forEach(function (m) { if (u[m.k] != null && !isNaN(Number(u[m.k]))) o[m.k] = Number(u[m.k]); });
+      if (u.bedtime_start) { var p = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_start)), hh = +p.find(function (x) { return x.type === 'hour'; }).value % 24, mm = +p.find(function (x) { return x.type === 'minute'; }).value; o.bedtime = hh + mm / 60 + (hh < 14 ? 24 : 0); }
+      if (u.bedtime_end) { var p2 = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_end)); o.wake = (+p2.find(function (x) { return x.type === 'hour'; }).value % 24) + (+p2.find(function (x) { return x.type === 'minute'; }).value) / 60; }
+      var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0 };
+      if (covRun(d)) o.run_km = pd.run_km;
+      if (covAll(d)) { o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; }
+      var ci = S.checkins[d]; if (ci) { if (ci.mood != null) o.mood = ci.mood; if (ci.stress != null) o.stress = ci.stress; if (ci.energy != null) o.energy = ci.energy; }
+      S.D[d] = o; S.dates.push(d); }
+    // rolling loads (only where every day in the window is covered)
+    function roll(key, out, win, div) { for (var i = win - 1; i < S.dates.length; i++) { var s = 0, ok = true; for (var j = i - win + 1; j <= i; j++) { var v = S.D[S.dates[j]][key]; if (v == null) { ok = false; break; } s += v; } if (ok) S.D[S.dates[i]][out] = s / (div || 1); } }
+    roll('run_km', 'run_km_7d', 7, 1); roll('run_km', 'run_km_28d', 28, 4); roll('ride_km', 'ride_km_7d', 7, 1); roll('active_min', 'active_min_7d', 7, 1);
+  }
+
+  // ================= Series, smoothing, stats =================
+  function series(k) { var out = []; S.dates.forEach(function (d) { var v = S.D[d][k]; if (v != null) out.push([dayNum(d), v]); }); return out; }
+  function smoothPts(pts, w) { if (w <= 1 || !pts.length) return pts; var half = Math.floor(w / 2), out = [], lo = 0, hi = 0;
+    for (var i = 0; i < pts.length; i++) { while (pts[lo][0] < pts[i][0] - half) lo++; while (hi < pts.length && pts[hi][0] <= pts[i][0] + half) hi++;
+      var s = 0, c = 0; for (var j = lo; j < hi; j++) { s += pts[j][1]; c++; } out.push([pts[i][0], c >= Math.min(3, Math.ceil(w / 4)) ? s / c : null]); } return out; }
+  function inRange(pts, days) { if (!days || !pts.length) return pts; var cut = pts[pts.length - 1][0] - days; return pts.filter(function (p) { return p[0] >= cut; }); }
+  function pearson(xs, ys) { var n = xs.length; if (n < 8) return null; var mx = avg(xs), my = avg(ys), sxy = 0, sxx = 0, syy = 0; for (var i = 0; i < n; i++) { var a = xs[i] - mx, b = ys[i] - my; sxy += a * b; sxx += a * a; syy += b * b; } return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null; }
+  function regress(xs, ys) { var mx = avg(xs), my = avg(ys), sxy = 0, sxx = 0; for (var i = 0; i < xs.length; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) * (xs[i] - mx); } var b = sxx ? sxy / sxx : 0; return { b: b, a: my - b * mx }; }
+  function weeklyTable() { var wk = {}; S.dates.forEach(function (d) { var n = dayNum(d), mon = n - ((n + 3) % 7); (wk[mon] || (wk[mon] = [])).push(S.D[d]); }); var out = {};
+    Object.keys(wk).forEach(function (mon) { var rows = wk[mon], o = {}; if (rows.length < 7 && +mon + 6 <= dayNum(S.dates[S.dates.length - 1])) return;
+      MET.forEach(function (m) { var vals = rows.map(function (r) { return r[m.k]; }); if (m.sum) { if (vals.every(function (v) { return v != null; }) && rows.length === 7) o[m.k] = vals.reduce(function (s, v) { return s + v; }, 0); }
+        else { var ok = vals.filter(function (v) { return v != null; }); if (ok.length >= 4) o[m.k] = avg(ok); } });
+      out[mon] = o; }); return out; }
+  function pairs(kx, ky, mode, lag) { var xs = [], ys = [], lab = [];
+    if (mode === 'weekly') { var W = weeklyTable(), keys = Object.keys(W).map(Number).sort(function (a, b) { return a - b; });
+      keys.forEach(function (n) { var a = W[n], b = W[n + 7 * lag]; if (a && b && a[kx] != null && b[ky] != null) { xs.push(a[kx]); ys.push(b[ky]); lab.push('w/c ' + fmtShort(n)); } }); }
+    else S.dates.forEach(function (d) { var a = S.D[d], d2 = addDays(d, lag), b = S.D[d2]; if (b && a[kx] != null && b[ky] != null) { xs.push(a[kx]); ys.push(b[ky]); lab.push(fmtDay(d)); } });
+    return { xs: xs, ys: ys, lab: lab }; }
+  function rText(r, n) { if (r == null) return 'Not enough overlapping data.'; var a = Math.abs(r), s = a < .1 ? 'No clear' : a < .3 ? 'A weak' : a < .5 ? 'A moderate' : 'A strong'; return s + (r < 0 ? ' negative' : ' positive') + ' link (r = ' + r.toFixed(2) + ', ' + n + ' pairs). This shows the two move together, not that one causes the other.'; }
+
+  // ================= Chart kit =================
   var NS = 'http://www.w3.org/2000/svg';
   function sv(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
-  function niceTicks(lo, hi, n) { var span = hi - lo || 1, step = Math.pow(10, Math.floor(Math.log10(span / n))), err = span / n / step;
-    step *= err >= 7 ? 10 : err >= 3 ? 5 : err >= 1.5 ? 2 : 1; var t = [], v = Math.ceil(lo / step) * step; for (; v <= hi + 1e-9; v += step) t.push(+v.toFixed(6)); return t; }
-  /* cfg: {w,h,series:[{pts:[[x,y]],color,width,dots,fill}],xFmt,yFmt,yMin,yMax,bands:[{from,to,color,op}],readout:fn(x,seriesIdx,y)} */
+  function niceTicks(lo, hi, n) { var span = hi - lo || 1, step = Math.pow(10, Math.floor(Math.log10(span / n))), err = span / n / step; step *= err >= 7 ? 10 : err >= 3 ? 5 : err >= 1.5 ? 2 : 1; var t = [], v = Math.ceil(lo / step) * step; for (; v <= hi + 1e-9; v += step) t.push(+v.toFixed(6)); return t; }
+  /* cfg: {h,series:[{pts,color,width,dots,fill,opacity}],xFmt,yFmt,xMin,xMax,yMin,yMax,xTicks,bands:[{from,to,color,op}],markers:[{x,label}],readout} */
   function lineChart(host, cfg) {
-    var W = cfg.w || 340, H = cfg.h || 170, P = { l: 34, r: 8, t: 8, b: 20 };
-    var all = []; cfg.series.forEach(function (s) { s.pts.forEach(function (p) { if (p[1] != null) all.push(p); }); });
-    host.innerHTML = '';
+    var W = host.clientWidth || 340, H = cfg.h || 180, P = { l: 38, r: 8, t: cfg.markers && cfg.markers.length ? 18 : 8, b: 20 };
+    var all = []; cfg.series.forEach(function (s) { s.pts.forEach(function (p) { if (p[1] != null) all.push(p); }); }); host.innerHTML = '';
     if (!all.length) { host.innerHTML = '<div class="empty">No data in this range</div>'; return; }
-    var x0 = cfg.xMin != null ? cfg.xMin : Math.min.apply(null, all.map(function (p) { return p[0]; }));
-    var x1 = cfg.xMax != null ? cfg.xMax : Math.max.apply(null, all.map(function (p) { return p[0]; }));
-    var ys = all.map(function (p) { return p[1]; });
-    var y0 = cfg.yMin != null ? cfg.yMin : Math.min.apply(null, ys), y1 = cfg.yMax != null ? cfg.yMax : Math.max.apply(null, ys);
+    var x0 = cfg.xMin != null ? cfg.xMin : Math.min.apply(null, all.map(function (p) { return p[0]; })), x1 = cfg.xMax != null ? cfg.xMax : Math.max.apply(null, all.map(function (p) { return p[0]; }));
+    var ys = all.map(function (p) { return p[1]; }), y0 = cfg.yMin != null ? cfg.yMin : Math.min.apply(null, ys), y1 = cfg.yMax != null ? cfg.yMax : Math.max.apply(null, ys);
     if (y0 === y1) { y0 -= 1; y1 += 1; } var pad = (y1 - y0) * 0.08; if (cfg.yMin == null) y0 -= pad; if (cfg.yMax == null) y1 += pad;
-    var sx = function (x) { return P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r); };
-    var sy = function (y) { return H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b); };
+    var sx = function (x) { return P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r); }, sy = function (y) { return H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b); };
     var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'ch', role: 'img' }); host.appendChild(svg);
     (cfg.bands || []).forEach(function (b) { var ya = sy(Math.min(b.to, y1)), yb = sy(Math.max(b.from, y0)); if (yb > ya) sv('rect', { x: P.l, y: ya, width: W - P.l - P.r, height: yb - ya, fill: b.color, opacity: b.op || .12 }, svg); });
-    niceTicks(y0, y1, 4).forEach(function (t) { sv('line', { x1: P.l, x2: W - P.r, y1: sy(t), y2: sy(t), stroke: 'var(--c-grid)', 'stroke-width': 1 }, svg);
+    niceTicks(y0, y1, Math.max(3, Math.round((H - P.t - P.b) / 42))).forEach(function (t) { sv('line', { x1: P.l, x2: W - P.r, y1: sy(t), y2: sy(t), stroke: 'var(--c-grid)', 'stroke-width': 1 }, svg);
       var tx = sv('text', { x: P.l - 5, y: sy(t) + 3, 'text-anchor': 'end' }, svg); tx.textContent = cfg.yFmt ? cfg.yFmt(t) : t; });
-    var xt = cfg.xTicks || niceTicks(x0, x1, 4);
+    var xt = cfg.xTicks || niceTicks(x0, x1, Math.max(3, Math.round(W / 110)));
     xt.forEach(function (t, i) { var tx = sv('text', { x: sx(t), y: H - 5, 'text-anchor': i === 0 ? 'start' : i === xt.length - 1 ? 'end' : 'middle' }, svg); tx.textContent = cfg.xFmt ? cfg.xFmt(t) : t; });
+    (cfg.markers || []).forEach(function (m) { if (m.x < x0 || m.x > x1) return; var xx = sx(m.x); sv('line', { x1: xx, x2: xx, y1: P.t - 4, y2: H - P.b, stroke: 'var(--accent2)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: .85 }, svg);
+      var tx = sv('text', { x: xx + 3, y: P.t - 6, class: 'ev' }, svg); tx.textContent = m.label.length > 22 ? m.label.slice(0, 21) + '…' : m.label; });
     cfg.series.forEach(function (s) {
-      var d = '', pen = false; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + sy(p[1]).toFixed(1); pen = true; });
-      if (s.fill && d) sv('path', { d: d + 'L' + sx(s.pts[s.pts.length - 1][0]) + ' ' + sy(y0) + 'L' + sx(s.pts[0][0]) + ' ' + sy(y0) + 'Z', fill: s.color, opacity: .1 }, svg);
-      if (d) sv('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: s.opacity || 1 }, svg);
-      if (s.dots) s.pts.forEach(function (p) { if (p[1] != null) sv('circle', { cx: sx(p[0]), cy: sy(p[1]), r: 1.8, fill: s.color, opacity: .5 }, svg); });
-    });
-    if (cfg.readout) {
-      var cross = sv('line', { y1: P.t, y2: H - P.b, stroke: 'var(--ink-3)', 'stroke-width': 1, opacity: 0 }, svg), mark = sv('circle', { r: 3.5, fill: cfg.series[0].color, opacity: 0 }, svg);
-      var base = cfg.series[0].pts.filter(function (p) { return p[1] != null; });
-      function move(ev) { var r = svg.getBoundingClientRect(), px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * W, best = null, bd = 1e18;
+      var d = '', pen = false, first = null, lastp = null; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + sy(p[1]).toFixed(1); pen = true; if (!first) first = p; lastp = p; });
+      if (s.fill && d) sv('path', { d: d + 'L' + sx(lastp[0]) + ' ' + sy(y0) + 'L' + sx(first[0]) + ' ' + sy(y0) + 'Z', fill: s.color, opacity: .1 }, svg);
+      if (s.dots) s.pts.forEach(function (p) { if (p[1] != null) sv('circle', { cx: sx(p[0]), cy: sy(p[1]), r: s.dotR || 1.7, fill: s.color, opacity: s.dotOp || .45 }, svg); });
+      if (d && !s.noLine) sv('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: s.opacity || 1 }, svg); });
+    if (cfg.readout) { var cross = sv('line', { y1: P.t, y2: H - P.b, stroke: 'var(--ink-3)', 'stroke-width': 1, opacity: 0 }, svg), mark = sv('circle', { r: 3.5, fill: cfg.series[cfg.series.length - 1].color, opacity: 0 }, svg);
+      var base = (cfg.readSeries != null ? cfg.series[cfg.readSeries] : cfg.series[cfg.series.length - 1]).pts.filter(function (p) { return p[1] != null; });
+      var move = function (ev) { var r = svg.getBoundingClientRect(), px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * W, best = null, bd = 1e18;
         base.forEach(function (p) { var dd = Math.abs(sx(p[0]) - px); if (dd < bd) { bd = dd; best = p; } }); if (!best) return;
-        cross.setAttribute('x1', sx(best[0])); cross.setAttribute('x2', sx(best[0])); cross.setAttribute('opacity', 1);
-        mark.setAttribute('cx', sx(best[0])); mark.setAttribute('cy', sy(best[1])); mark.setAttribute('opacity', 1); cfg.readout(best[0], best[1]); }
-      svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move);
-    }
+        cross.setAttribute('x1', sx(best[0])); cross.setAttribute('x2', sx(best[0])); cross.setAttribute('opacity', 1); mark.setAttribute('cx', sx(best[0])); mark.setAttribute('cy', sy(best[1])); mark.setAttribute('opacity', 1); cfg.readout(best[0], best[1]); };
+      svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); }
   }
-  function chartCard(title, legendHtml) { var read = h('div', { class: 'read num' }), host = h('div'), c = h('div', { class: 'card chartcard' }, [
-    h('div', { class: 'top' }, [h('span', { class: 'lbl' }, [title]), read]), host]);
+  function scatter(host, pr, xl, yl, xf, yf, onRead) {
+    var W = host.clientWidth || 340, H = 280, P = { l: 44, r: 10, t: 10, b: 30 }; host.innerHTML = '';
+    if (pr.xs.length < 8) { host.innerHTML = '<div class="empty">Not enough overlapping data for this pair</div>'; return null; }
+    var x0 = Math.min.apply(null, pr.xs), x1 = Math.max.apply(null, pr.xs), y0 = Math.min.apply(null, pr.ys), y1 = Math.max.apply(null, pr.ys), px = (x1 - x0) * .06 || 1, py = (y1 - y0) * .08 || 1; x0 -= px; x1 += px; y0 -= py; y1 += py;
+    var sx = function (x) { return P.l + (x - x0) / (x1 - x0) * (W - P.l - P.r); }, sy = function (y) { return H - P.b - (y - y0) / (y1 - y0) * (H - P.t - P.b); };
+    var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'ch' }); host.appendChild(svg);
+    niceTicks(y0, y1, 5).forEach(function (t) { sv('line', { x1: P.l, x2: W - P.r, y1: sy(t), y2: sy(t), stroke: 'var(--c-grid)' }, svg); var tx = sv('text', { x: P.l - 5, y: sy(t) + 3, 'text-anchor': 'end' }, svg); tx.textContent = yf(t); });
+    niceTicks(x0, x1, Math.max(3, Math.round(W / 90))).forEach(function (t) { var tx = sv('text', { x: sx(t), y: H - 14, 'text-anchor': 'middle' }, svg); tx.textContent = xf(t); });
+    var tl = sv('text', { x: (P.l + W - P.r) / 2, y: H - 2, 'text-anchor': 'middle' }, svg); tl.textContent = xl;
+    var tyl = sv('text', { x: 4, y: 10, 'text-anchor': 'start' }, svg); tyl.textContent = yl;
+    pr.xs.forEach(function (x, i) { sv('circle', { cx: sx(x), cy: sy(pr.ys[i]), r: 3, fill: 'var(--teal)', opacity: .4 }, svg); });
+    var rg = regress(pr.xs, pr.ys); sv('line', { x1: sx(x0), y1: sy(rg.a + rg.b * x0), x2: sx(x1), y2: sy(rg.a + rg.b * x1), stroke: 'var(--accent2)', 'stroke-width': 2 }, svg);
+    var mk = sv('circle', { r: 5, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg);
+    var move = function (ev) { var r = svg.getBoundingClientRect(), qx = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * W, qy = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) / r.height * H, bi = -1, bd = 1e18;
+      pr.xs.forEach(function (x, i) { var dd = Math.pow(sx(x) - qx, 2) + Math.pow(sy(pr.ys[i]) - qy, 2); if (dd < bd) { bd = dd; bi = i; } }); if (bi < 0) return;
+      mk.setAttribute('cx', sx(pr.xs[bi])); mk.setAttribute('cy', sy(pr.ys[bi])); mk.setAttribute('opacity', 1); onRead(pr.lab[bi] + '  ' + xf(pr.xs[bi]) + ' / ' + yf(pr.ys[bi])); };
+    svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); return rg;
+  }
+  function spark(vals, color) { var v = vals.filter(function (x) { return x != null; }); if (v.length < 3) return ''; var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), W = 64, H = 20, d = '';
+    vals.forEach(function (x, i) { if (x == null) return; d += (d ? 'L' : 'M') + (i / (vals.length - 1) * W).toFixed(1) + ' ' + (H - 2 - (x - lo) / ((hi - lo) || 1) * (H - 4)).toFixed(1); });
+    return '<svg class="spark" viewBox="0 0 64 20"><path d="' + d + '" fill="none" stroke="' + (color || 'var(--teal)') + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  function chartCard(title, legendHtml) { var read = h('div', { class: 'read num' }), host = h('div'), c = h('div', { class: 'card chartcard' }, [h('div', { class: 'top' }, [h('span', { class: 'lbl' }, [title]), read]), host]);
     if (legendHtml) c.appendChild(h('div', { class: 'legend', html: legendHtml })); c.read = read; c.host = host; return c; }
+  function evMarkers() { return S.showEvents ? S.events.map(function (e) { return { x: dayNum(e.date), label: e.label }; }) : []; }
+  var SM_STEPS = [1, 3, 7, 14, 30, 60, 90, 180];
+  function smoothName(w) { return w === 1 ? 'Daily' : w + '-day trend'; }
+  function smoothCtl(onChange) { var val = h('span', { class: 'val' }, [smoothName(S.sm)]), idx = Math.max(0, SM_STEPS.indexOf(S.sm)),
+      rng = h('input', { type: 'range', min: 0, max: SM_STEPS.length - 1, step: 1, value: idx }), ev = h('input', { type: 'checkbox' });
+    ev.checked = S.showEvents; rng.addEventListener('input', function () { S.sm = SM_STEPS[+rng.value]; val.textContent = smoothName(S.sm); savePrefs(); onChange(); });
+    ev.addEventListener('change', function () { S.showEvents = ev.checked; savePrefs(); onChange(); });
+    return h('div', { class: 'card ctl' }, [h('span', { class: 'lbl' }, ['Detail']), h('span', { class: 'sub' }, ['points']), rng, h('span', { class: 'sub' }, ['trend']), val,
+      h('label', { class: 'sub', style: 'display:flex;align-items:center;gap:6px;margin-left:8px' }, [ev, 'Events'])]); }
 
-  // ---------- Today ----------
+  // ================= Today =================
+  function stepDay(n) { var d = addDays(S.date, n); if (S.byDate[d]) { S.date = d; renderToday(); renderSleep(); } }
   function renderToday() {
-    var p = $('p-today'); p.innerHTML = ''; var r = S.byDate[S.date];
-    var prev = h('button', { class: 'iconbtn', 'aria-label': 'Previous day', onclick: function () { stepDay(-1); } }, ['‹']);
-    var next = h('button', { class: 'iconbtn', 'aria-label': 'Next day', onclick: function () { stepDay(1); } }, ['›']);
-    var last = S.daily.length ? S.daily[S.daily.length - 1].date : S.date;
-    if (!S.byDate[addDays(S.date, 1)]) next.setAttribute('disabled', '');
+    var p = $('p-today'); p.innerHTML = ''; var r = S.byDate[S.date], D = S.D[S.date] || {};
+    var prev = h('button', { class: 'iconbtn', 'aria-label': 'Previous day', onclick: function () { stepDay(-1); } }, ['‹']), next = h('button', { class: 'iconbtn', 'aria-label': 'Next day', onclick: function () { stepDay(1); } }, ['›']);
+    var last = S.daily.length ? S.daily[S.daily.length - 1].date : S.date; if (!S.byDate[addDays(S.date, 1)]) next.setAttribute('disabled', '');
     p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, [S.date === last ? 'Today' : 'Day']), h('div', { class: 'sub' }, [fmtDay(S.date)])]), h('div', { class: 'datebar' }, [prev, next])]));
     if (!r) { p.appendChild(h('div', { class: 'card empty' }, ['No data for this day yet.'])); return; }
-    var sc = h('div', { class: 'scores' }); ['sleep_score', 'recovery_index', 'movement_index'].forEach(function (k) {
-      var lv = band(r, k); sc.appendChild(h('div', { class: 'card score' }, [h('div', { class: 'lbl' }, [M[k].l]),
-        h('div', { class: 'big num', style: 'color:' + (lv === 'none' ? 'var(--ink)' : COLORS[lv]) }, [r[k] == null ? '–' : String(r[k])]),
-        h('div', { class: 'tag', html: dot(lv) + ' ' + esc(LABEL[lv] || '') })])); });
-    p.appendChild(sc);
-    var keys = ['sleep_rhr', 'avg_hrv', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'time_in_bed_min'];
-    var g = h('div', { class: 'grid' }); keys.forEach(function (k) { var v = r[k]; if (v == null) return; var lv = band(r, k), m = M[k], d = '';
-      var base = avg(recent(k, S.date, 30)); if (base != null && m.better) { var diff = Number(v) - base, pct = base ? diff / base * 100 : 0;
-        if (Math.abs(pct) >= 1) d = (diff > 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(0) + '% vs 30d'; else d = '≈ 30d avg'; }
-      g.appendChild(h('button', { class: 'card tile', onclick: function () { S.trendKey = k; selectTab('trends'); } }, [
-        h('div', { class: 'row' }, [h('span', { class: 'lbl' }, [m.l]), h('span', { html: dot(lv) })]),
-        h('div', { class: 'v' }, [h('span', {}, [String(m.f(v))]), m.u ? h('span', { class: 'u' }, [m.u]) : null]),
-        h('div', { class: 'delta' }, [d || ' '])])); });
-    p.appendChild(g);
+    var sc = h('div', { class: 'scores' }); ['sleep_score', 'recovery_index', 'movement_index'].forEach(function (k) { var lv = band(r, k);
+      var sp0 = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -45); }).map(function (x) { return S.D[x][k]; }), lv === 'none' ? 'var(--teal)' : COLORS[lv]);
+      sc.appendChild(h('button', { class: 'card score', onclick: function () { S.trendKey = k; selectTab('trends'); } }, [h('div', { class: 'lbl' }, [MK[k].l]), h('div', { class: 'big num', style: 'color:' + (lv === 'none' ? 'var(--ink)' : COLORS[lv]) }, [r[k] == null ? '-' : String(r[k])]), h('div', { class: 'tag', html: dot(lv) + ' ' + esc(LABEL[lv] || '') }), h('div', { class: 'scorespark', html: sp0 })])); });
+    var keys = ['avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'bedtime', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'run_km_28d', 'mood', 'stress', 'energy'];
+    var g = h('div', { class: 'grid' }); keys.forEach(function (k) { var v = D[k]; if (v == null) return; var lv = band(r, k), m = MK[k], d = '', base = avg(S.dates.filter(function (x) { return x < S.date && x >= addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
+      if (base != null && m.better) { var diff = v - base, pct = base ? diff / Math.abs(base) * 100 : 0; d = Math.abs(pct) >= 1 ? (diff > 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(0) + '% vs 30d' : '≈ 30d avg'; }
+      var sp = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
+      g.appendChild(h('button', { class: 'card tile', onclick: function () { S.trendKey = k; selectTab('trends'); } }, [h('div', { class: 'row' }, [h('span', { class: 'lbl' }, [m.l]), h('span', { html: dot(lv) })]),
+        h('div', { class: 'v' }, [h('span', {}, [m.f === hm || m.f === clock ? m.f(v) : String(m.f(v))]), m.u ? h('span', { class: 'u' }, [m.u]) : null]), h('div', { class: 'foot' }, [h('span', { class: 'delta' }, [d || ' ']), h('span', { html: sp })])])); });
+    p.appendChild(sc); g.style.marginTop = '10px'; p.appendChild(g);
     var fetched = r.fetched_at ? new Date(r.fetched_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-    p.appendChild(h('div', { class: 'sub', style: 'margin:14px 4px' }, ['Steps and recovery for the most recent days may still change. Last fetched ' + fetched + '.']));
+    p.appendChild(h('div', { class: 'note' }, ['Steps and recovery for the most recent days may still change. Last fetched ' + fetched + '. Bands are Ultrahuman\'s own where it supplies one; the three headline scores use 80 and 60 as cut-offs.']));
     p.appendChild(h('button', { class: 'signout', onclick: function () { supa.auth.signOut().then(function () { location.reload(); }); } }, ['Sign out']));
   }
-  function stepDay(n) { var d = addDays(S.date, n); if (S.byDate[d]) { S.date = d; renderToday(); renderSleep(); } }
 
-  // ---------- Sleep (night view) ----------
-  function getNight(date) { if (S.nightCache[date]) return Promise.resolve(S.nightCache[date]);
-    return supa.from('health_uh_night').select('*').eq('date', date).maybeSingle().then(function (res) { S.nightCache[date] = res.data || {}; return S.nightCache[date]; }); }
-  var STAGE = { deep_sleep: ['Deep', 'var(--s-deep)', 0], light_sleep: ['Light', 'var(--s-light)', 1], rem_sleep: ['REM', 'var(--s-rem)', 2], awake: ['Awake', 'var(--s-awake)', 3] };
+  // ================= Sleep =================
+  function getNight(date) { if (S.nightCache[date]) return Promise.resolve(S.nightCache[date]); return supa.from('health_uh_night').select('*').eq('date', date).maybeSingle().then(function (res) { S.nightCache[date] = res.data || {}; return S.nightCache[date]; }); }
+  var STAGE = { deep_sleep: ['Deep', 'var(--s-deep)', 3], light_sleep: ['Light', 'var(--s-light)', 2], rem_sleep: ['REM', 'var(--s-rem)', 1], awake: ['Awake', 'var(--s-awake)', 0] };
   function renderSleep() {
     var p = $('p-sleep'); p.innerHTML = ''; var r = S.byDate[S.date];
-    var prev = h('button', { class: 'iconbtn', onclick: function () { stepDay(-1); } }, ['‹']), next = h('button', { class: 'iconbtn', onclick: function () { stepDay(1); } }, ['›']);
-    if (!S.byDate[addDays(S.date, 1)]) next.setAttribute('disabled', '');
+    var prev = h('button', { class: 'iconbtn', onclick: function () { stepDay(-1); } }, ['‹']), next = h('button', { class: 'iconbtn', onclick: function () { stepDay(1); } }, ['›']); if (!S.byDate[addDays(S.date, 1)]) next.setAttribute('disabled', '');
     p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Sleep']), h('div', { class: 'sub' }, [fmtDay(S.date)])]), h('div', { class: 'datebar' }, [prev, next])]));
     if (!r) { p.appendChild(h('div', { class: 'card empty' }, ['No data for this day.'])); return; }
-    var st = h('div', { class: 'stats' }); [['total_sleep_min', 'Slept'], ['efficiency', 'Efficiency'], ['sleep_score', 'Score']].forEach(function (a) {
-      var v = r[a[0]]; st.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl', html: esc(a[1]) + ' ' + dot(band(r, a[0])) }), h('div', { class: 'v' }, [v == null ? '–' : String(M[a[0]].f(v)) + (M[a[0]].u || '')])])); });
-    p.appendChild(st);
-    var holder = h('div'); p.appendChild(holder); holder.appendChild(h('div', { class: 'card empty' }, ['Loading night…']));
-    var date = S.date;
-    getNight(date).then(function (n) { if (date !== S.date) return; holder.innerHTML = '';
-      var tz = r.timezone, t0 = r.bedtime_start, t1 = r.bedtime_end;
+    var st = h('div', { class: 'stats' }); [['sleep_score', 'Score'], ['total_sleep_min', 'Slept'], ['efficiency', 'Efficiency'], ['restorative_pct', 'Restorative'], ['avg_hrv', 'HRV'], ['sleep_rhr', 'Resting HR']].forEach(function (a) { var v = S.D[S.date][a[0]];
+      st.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl', html: esc(a[1]) + ' ' + dot(band(r, a[0])) }), h('div', { class: 'v' }, [v == null ? '-' : fmtMetric(a[0], v)])])); }); p.appendChild(st);
+    var holder = h('div', { class: 'cols c2' }); p.appendChild(holder); holder.appendChild(h('div', { class: 'card empty' }, ['Loading night…'])); var date = S.date;
+    getNight(date).then(function (n) { if (date !== S.date) return; holder.innerHTML = ''; var tz = r.timezone, t0 = r.bedtime_start, t1 = r.bedtime_end;
       if (!t0 || !t1 || !(n.hr || n.hrv || n.temp || n.stages)) { holder.appendChild(h('div', { class: 'card empty' }, ['No overnight detail stored for this day.'])); return; }
-      var hours = []; for (var t = Math.ceil(Date.parse(t0) / 1000 / 3600) * 3600; t <= Date.parse(t1) / 1000; t += 7200) hours.push(t);
-      var a = Math.floor(Date.parse(t0) / 1000), b = Math.floor(Date.parse(t1) / 1000), xf = function (t) { return tzTime(t, tz).replace(/^0/, ''); };
-      // hypnogram
-      var hc = chartCard('Sleep stages', '<span><i style="background:var(--s-awake)"></i>Awake</span><span><i style="background:var(--s-rem)"></i>REM</span><span><i style="background:var(--s-light)"></i>Light</span><span><i style="background:var(--s-deep)"></i>Deep</span>');
-      holder.appendChild(hc);
-      if (n.stages && n.stages.length) { var W = 340, H = 110, P = { l: 34, r: 8, t: 6, b: 20 }, svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'ch' }); hc.host.appendChild(svg);
-        var sx = function (x) { return P.l + (x - a) / (b - a || 1) * (W - P.l - P.r); }, rowH = (H - P.t - P.b) / 4;
-        ['Awake', 'REM', 'Light', 'Deep'].forEach(function (nm, i) { var tx = sv('text', { x: P.l - 5, y: P.t + rowH * i + rowH / 2 + 3, 'text-anchor': 'end' }, svg); tx.textContent = nm; });
-        n.stages.forEach(function (s) { var d = STAGE[s[2]]; if (!d) return; var row = { awake: 0, rem_sleep: 1, light_sleep: 2, deep_sleep: 3 }[s[2]];
-          sv('rect', { x: sx(Math.max(s[0], a)), y: P.t + rowH * row + 2, width: Math.max(1.5, sx(Math.min(s[1], b)) - sx(Math.max(s[0], a))), height: rowH - 4, rx: 2.5, fill: d[1] }, svg); });
-        hours.forEach(function (t, i) { var tx = sv('text', { x: sx(t), y: H - 5, 'text-anchor': 'middle' }, svg); tx.textContent = xf(t); }); }
-      function series(title, key, color, fmt, unit) { var pts = (n[key] || []).filter(function (q) { return q[0] >= a - 600 && q[0] <= b + 600; }); if (!pts.length) return;
-        var c = chartCard(title); holder.appendChild(c); lineChart(c.host, { h: 150, series: [{ pts: pts, color: color, fill: true, width: 1.8 }], xMin: a, xMax: b, xTicks: hours, xFmt: xf, yFmt: fmt,
-          readout: function (x, y) { c.read.textContent = xf(x) + '  ' + fmt(y) + ' ' + unit; } }); }
-      series('Heart rate', 'hr', 'var(--c-hr)', function (v) { return Math.round(v); }, 'bpm');
-      series('HRV', 'hrv', 'var(--c-hrv)', function (v) { return Math.round(v); }, 'ms');
-      series('Skin temperature', 'temp', 'var(--c-temp)', function (v) { return Number(v).toFixed(1); }, '°C');
-    });
+      var a = Math.floor(Date.parse(t0) / 1000), b = Math.floor(Date.parse(t1) / 1000), hours = []; for (var t = Math.ceil(a / 3600) * 3600; t <= b; t += 7200) hours.push(t); var xf = function (t) { return tzTime(t, tz).replace(/^0/, ''); };
+      var hc = chartCard('Sleep stages', '<span><i style="background:var(--s-awake)"></i>Awake</span><span><i style="background:var(--s-rem)"></i>REM</span><span><i style="background:var(--s-light)"></i>Light</span><span><i style="background:var(--s-deep)"></i>Deep</span>'); hc.style.gridColumn = '1 / -1'; holder.appendChild(hc);
+      var draw = function () { hc.host.innerHTML = ''; if (!(n.stages && n.stages.length)) return; var W = hc.host.clientWidth || 340, H = 120, P = { l: 38, r: 8, t: 6, b: 20 }, svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'ch' }); hc.host.appendChild(svg);
+        var sx = function (x) { return P.l + (x - a) / (b - a || 1) * (W - P.l - P.r); }, rowH = (H - P.t - P.b) / 4; ['Awake', 'REM', 'Light', 'Deep'].forEach(function (nm, i) { var tx = sv('text', { x: P.l - 5, y: P.t + rowH * i + rowH / 2 + 3, 'text-anchor': 'end' }, svg); tx.textContent = nm; });
+        n.stages.forEach(function (s) { var d = STAGE[s[2]]; if (!d) return; sv('rect', { x: sx(Math.max(s[0], a)), y: P.t + rowH * d[2] + 2, width: Math.max(1.5, sx(Math.min(s[1], b)) - sx(Math.max(s[0], a))), height: rowH - 4, rx: 2.5, fill: d[1] }, svg); });
+        hours.forEach(function (t) { var tx = sv('text', { x: sx(t), y: H - 5, 'text-anchor': 'middle' }, svg); tx.textContent = xf(t); }); }; draw();
+      function ser(title, key, color, fmt, unit) { var pts = (n[key] || []).filter(function (q) { return q[0] >= a - 600 && q[0] <= b + 600; }); if (!pts.length) return; var c = chartCard(title); holder.appendChild(c);
+        lineChart(c.host, { h: 160, series: [{ pts: pts, color: color, fill: true, width: 1.8 }], xMin: a, xMax: b, xTicks: hours, xFmt: xf, yFmt: fmt, readout: function (x, y) { c.read.textContent = xf(x) + '  ' + fmt(y) + ' ' + unit; } }); }
+      ser('Heart rate', 'hr', 'var(--c-hr)', r0, 'bpm'); ser('HRV', 'hrv', 'var(--c-hrv)', r0, 'ms'); ser('Skin temperature', 'temp', 'var(--c-temp)', r1, '°C'); });
   }
 
-  // ---------- Trends ----------
-  var TREND_KEYS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'steps', 'deep_min', 'rem_min', 'vo2_max', 'spo2', 'temp_dev_c'];
+  // ================= Trends =================
+  function whatsMoving() { var last = S.dates[S.dates.length - 1], rows = [];
+    MOVING.forEach(function (k) { var a = [], b = []; S.dates.forEach(function (d) { var v = S.D[d][k]; if (v == null) return; if (d > addDays(last, -30)) a.push(v); else if (d > addDays(last, -120)) b.push(v); });
+      if (a.length < 10 || b.length < 30) return; var ma = avg(a), mb = avg(b), s = sd(b, mb); if (!s) return; rows.push({ k: k, a: ma, b: mb, d: (ma - mb) / s, diff: ma - mb, pct: mb ? (ma - mb) / Math.abs(mb) * 100 : 0 }); });
+    rows.sort(function (x, y) { return Math.abs(y.d) - Math.abs(x.d); }); return rows; }
   function renderTrends() {
-    var p = $('p-trends'); p.innerHTML = ''; var k = S.trendKey, m = M[k];
+    var p = $('p-trends'); p.innerHTML = ''; var k = S.trendKey, m = MK[k];
     p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Trends']), h('div', { class: 'sub' }, [m.l])])]));
-    var chips = h('div', { class: 'chips' }); TREND_KEYS.forEach(function (key) { chips.appendChild(h('button', { class: 'chip' + (key === k ? ' on' : ''), onclick: function () { S.trendKey = key; renderTrends(); } }, [M[key].l])); }); p.appendChild(chips);
-    var rc = h('div', { class: 'chips' }); [[30, '30D'], [90, '90D'], [365, '1Y'], [0, 'All']].forEach(function (a) { rc.appendChild(h('button', { class: 'chip' + (S.range === a[0] ? ' on' : ''), onclick: function () { S.range = a[0]; renderTrends(); } }, [a[1]])); }); p.appendChild(rc);
-    var rows = S.daily.filter(function (r) { return r[k] != null; });
-    if (S.range) { var cut = addDays(S.daily.length ? S.daily[S.daily.length - 1].date : S.date, -S.range); rows = rows.filter(function (r) { return r.date >= cut; }); }
-    var day = function (ds) { return Date.parse(ds + 'T12:00:00') / 86400000; };
-    var pts = rows.map(function (r) { return [day(r.date), Number(r[k])]; }), ma = pts.map(function (q, i) { var w = pts.slice(Math.max(0, i - 6), i + 1); return [q[0], avg(w.map(function (x) { return x[1]; }))]; });
+    var groups = {}; MET.forEach(function (x) { (groups[x.g] || (groups[x.g] = [])).push(x); });
+    var sel = h('select', { 'aria-label': 'Metric' }); Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { var o = h('option', { value: x.k }, [x.l]); if (x.k === k) o.selected = true; og.appendChild(o); }); sel.appendChild(og); });
+    sel.addEventListener('change', function () { S.trendKey = sel.value; renderTrends(); });
+    var top = h('div', { class: 'card ctl' }, [h('div', { style: 'flex:1;min-width:200px' }, [sel])]);
+    [[30, '30D'], [90, '90D'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (S.range === a[0] ? ' on' : ''), onclick: function () { S.range = a[0]; renderTrends(); } }, [a[1]])); }); p.appendChild(top);
+    p.appendChild(smoothCtl(renderTrends));
+    var cols = h('div', { class: 'cols side' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
+    var raw = inRange(series(k), S.range), sm = smoothPts(series(k), S.sm), cut = raw.length ? raw[0][0] : 0, smr = sm.filter(function (q) { return q[0] >= cut; });
     var bands = []; if (k === 'sleep_score' || k === 'recovery_index' || k === 'movement_index') bands = [{ from: SCORE_BANDS.optimal, to: 100, color: 'var(--opt)', op: .13 }, { from: SCORE_BANDS.good, to: SCORE_BANDS.optimal, color: 'var(--good)', op: .13 }, { from: 0, to: SCORE_BANDS.good, color: 'var(--bad)', op: .1 }];
-    var c = chartCard(m.l, '<span><i style="background:var(--ink-3)"></i>Daily</span><span><i style="background:var(--teal)"></i>7-day average</span>'); p.appendChild(c);
-    var xf = function (d) { return new Date(d * 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: S.range === 0 || S.range === 365 ? '2-digit' : undefined }); };
-    lineChart(c.host, { h: 210, series: [{ pts: pts, color: 'var(--ink-3)', width: 1, dots: true, opacity: .8 }, { pts: ma, color: 'var(--teal)', width: 2.2 }], bands: bands, xFmt: xf,
-      yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: function (v) { return k.slice(-4) === '_min' ? Math.round(v / 60 * 10) / 10 + 'h' : Number(v).toLocaleString('en-GB'); },
-      readout: function (x, y) { c.read.textContent = xf(x) + '  ' + m.f(m.f === hm ? y : (k === 'temp_dev_c' ? y : Math.round(y * 10) / 10)) + (m.u ? ' ' + m.u : ''); } });
-    var vals = pts.map(function (q) { return q[1]; });
-    if (vals.length) { var g = h('div', { class: 'stats' }); [['Average', avg(vals)], ['Best', Math.max.apply(null, vals)], ['Lowest', Math.min.apply(null, vals)]].forEach(function (a) {
-      g.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [a[0]]), h('div', { class: 'v' }, [String(m.f(m.f === hm || k === 'temp_dev_c' ? a[1] : Math.round(a[1] * 10) / 10))])])); }); p.appendChild(g); }
+    var c = chartCard(m.l, '<span><i style="background:var(--ink-3)"></i>Daily</span><span><i style="background:var(--teal)"></i>' + smoothName(S.sm) + '</span>' + (S.showEvents && S.events.length ? '<span><i style="background:var(--accent2)"></i>Event</span>' : '')); left.appendChild(c);
+    var fmtv = function (v) { return m.f === hm || m.f === clock ? m.f(v) : String(m.f === r0 ? r0(v) : r1(v)); };
+    lineChart(c.host, { h: 300, series: [{ pts: raw, color: 'var(--ink-3)', width: 1, dots: S.sm > 1, noLine: S.sm > 1, opacity: .8 }, { pts: S.sm > 1 ? smr : [], color: 'var(--teal)', width: 2.6 }], bands: bands, markers: evMarkers(), xFmt: fmtShort,
+      yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: function (v) { return m.f === hm ? Math.round(v / 60 * 10) / 10 + 'h' : m.f === clock ? clock(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); },
+      readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }); c.read.textContent = fmtShort(x) + '  ' + fmtv(y) + (S.sm > 1 && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : ''); } });
+    var vals = raw.map(function (q) { return q[1]; });
+    if (vals.length) { var g = h('div', { class: 'stats' }); [['Average', avg(vals)], ['Best', m.better === -1 ? Math.min.apply(null, vals) : Math.max.apply(null, vals)], ['Lowest', m.better === -1 ? Math.max.apply(null, vals) : Math.min.apply(null, vals)], ['Latest', vals[vals.length - 1]], ['Days', vals.length], ['Std dev', sd(vals)]].forEach(function (a) {
+      g.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [a[0]]), h('div', { class: 'v' }, [a[1] == null ? '-' : a[0] === 'Days' ? String(a[1]) : a[0] === 'Std dev' ? r1(a[1]) : fmtv(a[1])])])); }); left.appendChild(g); }
+    // what's moving
+    var mv = whatsMoving(), tc = h('div', { class: 'card' }, [h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['What\'s moving: last 30 days vs the 90 before']), h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['Ranked by size of change relative to normal day-to-day variation.'])]);
+    var tb = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Metric']), h('th', { style: 'text-align:right' }, ['Now']), h('th', { style: 'text-align:right' }, ['Before']), h('th', {}, ['Change'])])]);
+    mv.forEach(function (x) { var good = MK[x.k].better ? (x.d * MK[x.k].better > 0) : null, col = good == null ? 'var(--ink-3)' : good ? 'var(--opt)' : 'var(--bad)', wdt = Math.min(50, Math.abs(x.d) * 50);
+      var tr = h('tr', { class: 'click', onclick: function () { S.trendKey = x.k; renderTrends(); } }, [h('td', {}, [MK[x.k].l]), h('td', { class: 'n' }, [fmtMetric(x.k, x.a)]), h('td', { class: 'n' }, [fmtMetric(x.k, x.b)]),
+        h('td', {}, [h('div', { class: 'bar', html: '<i style="background:' + col + ';' + (x.d >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'delta' }, [chgText(x.k, x.diff, x.pct)])])]); tb.appendChild(tr); });
+    tc.appendChild(mv.length ? tb : h('div', { class: 'empty' }, ['Not enough recent data'])); right.appendChild(tc);
   }
 
-  // ---------- Runs ----------
-  function pace(sec, m) { if (!m) return '–'; var s = sec / (m / 1000); return Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'); }
-  function dur(s) { var h_ = Math.floor(s / 3600), m_ = Math.floor(s % 3600 / 60), ss = Math.round(s % 60); return (h_ ? h_ + ':' + String(m_).padStart(2, '0') : m_) + ':' + String(ss).padStart(2, '0'); }
+  // ================= Compare =================
+  function metricSelect(val, onChange) { var groups = {}; MET.forEach(function (x) { (groups[x.g] || (groups[x.g] = [])).push(x); }); var sel = h('select', {});
+    Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { var o = h('option', { value: x.k }, [x.l]); if (x.k === val) o.selected = true; og.appendChild(o); }); sel.appendChild(og); }); sel.addEventListener('change', function () { onChange(sel.value); }); return sel; }
+  function aroundEvent(ev, win) { var n0 = dayNum(ev.date), rows = [];
+    MOVING.concat(['bedtime', 'avg_hr', 'vo2_max']).forEach(function (k) { var a = [], b = []; S.dates.forEach(function (d) { var n = dayNum(d), v = S.D[d][k]; if (v == null) return; if (n >= n0 - win && n < n0) a.push(v); else if (n >= n0 && n < n0 + win) b.push(v); });
+      if (a.length < 12 || b.length < 12) return; var ma = avg(a), mb = avg(b), sa = sd(a, ma), sb = sd(b, mb), sp = Math.sqrt(((a.length - 1) * sa * sa + (b.length - 1) * sb * sb) / (a.length + b.length - 2)); if (!sp) return;
+      rows.push({ k: k, a: ma, b: mb, na: a.length, nb: b.length, d: (mb - ma) / sp, diff: mb - ma, pct: ma ? (mb - ma) / Math.abs(ma) * 100 : 0 }); });
+    rows.sort(function (x, y) { return Math.abs(y.d) - Math.abs(x.d); }); return rows; }
+  function renderCompare() {
+    var p = $('p-compare'), C = S.cmp; p.innerHTML = ''; var mx = MK[C.x], my = MK[C.y], wk = C.mode === 'weekly';
+    p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Compare']), h('div', { class: 'sub' }, ['See what moves with what, and what changed around an event'])])]));
+    var ctl = h('div', { class: 'card', style: 'margin-bottom:10px' }); var fr = h('div', { class: 'formrow' }, [h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Cause to test (X)']), metricSelect(C.x, function (v) { C.x = v; renderCompare(); })]), h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Outcome (Y)']), metricSelect(C.y, function (v) { C.y = v; renderCompare(); })])]); ctl.appendChild(fr);
+    var md = h('select', {}); [['daily', 'Day by day'], ['weekly', 'Week by week']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if (C.mode === a[0]) o.selected = true; md.appendChild(o); }); md.addEventListener('change', function () { C.mode = md.value; C.lag = Math.min(C.lag, md.value === 'weekly' ? 2 : 7); renderCompare(); });
+    var lg = h('select', {}); (wk ? [0, 1, 2] : [0, 1, 2, 3, 5, 7]).forEach(function (v) { var o = h('option', { value: v }, [v === 0 ? 'Same ' + (wk ? 'week' : 'day') : 'Y is ' + v + (wk ? ' week' : ' day') + (v > 1 ? 's' : '') + ' after X']); if (C.lag === v) o.selected = true; lg.appendChild(o); }); lg.addEventListener('change', function () { C.lag = +lg.value; renderCompare(); });
+    ctl.appendChild(h('div', { class: 'formrow' }, [h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Compare']), md]), h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Timing']), lg])])); p.appendChild(ctl);
+    p.appendChild(smoothCtl(renderCompare));
+    var cols = h('div', { class: 'cols c2' }); p.appendChild(cols); var pr = pairs(C.x, C.y, C.mode, C.lag), left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
+    var sc = chartCard(my.l + ' against ' + mx.l.toLowerCase()); left.appendChild(sc); var rg = scatter(sc.host, pr, mx.l + (mx.u ? ' (' + mx.u + ')' : ''), my.l + (my.u ? ' (' + my.u + ')' : ''), function (v) { return mx.f === hm || mx.f === clock ? mx.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (v) { return my.f === hm || my.f === clock ? my.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (t) { sc.read.textContent = t; });
+    var rr = pearson(pr.xs, pr.ys); left.appendChild(h('div', { class: 'card', style: 'margin-bottom:10px' }, [h('div', { style: 'font-size:13px;line-height:1.5' }, [rText(rr, pr.xs.length) + (rg && rr != null ? ' Slope: each +1 ' + (mx.u || 'unit') + ' in X goes with ' + (rg.b >= 0 ? '+' : '') + Number(rg.b.toFixed(3)) + ' ' + (my.u || 'units') + ' in Y.' : '')]),
+      h('div', { class: 'sub', style: 'margin-top:6px' }, ['Look for things that changed together: sleep timing, alcohol, training, stress and life events can all move HRV at once.'])]));
+    // timeline z-scores
+    var s1 = smoothPts(series(C.x), wk ? Math.max(S.sm, 7) : S.sm), s2 = smoothPts(series(C.y), wk ? Math.max(S.sm, 7) : S.sm);
+    function z(pts) { var v = pts.map(function (q) { return q[1]; }).filter(function (x) { return x != null; }), m_ = avg(v), s_ = sd(v, m_) || 1; return pts.map(function (q) { return [q[0], q[1] == null ? null : (q[1] - m_) / s_]; }); }
+    var tc = chartCard('Over time, in standard deviations from each one\'s own average', '<span><i style="background:var(--accent2)"></i>' + esc(mx.l) + '</span><span><i style="background:var(--teal)"></i>' + esc(my.l) + '</span><span><i style="background:var(--ink-3)"></i>Event</span>'); right.appendChild(tc);
+    var z1 = z(s1), z2 = z(s2); var cut = Math.max(z1.length ? z1[0][0] : 0, z2.length ? z2[0][0] : 0);
+    lineChart(tc.host, { h: 280, series: [{ pts: z1.filter(function (q) { return q[0] >= cut; }), color: 'var(--accent2)', width: 2 }, { pts: z2.filter(function (q) { return q[0] >= cut; }), color: 'var(--teal)', width: 2.2 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
+      readout: function (x, y) { var a = z1.find(function (q) { return q[0] === x; }), b = z2.find(function (q) { return q[0] === x; }); tc.read.textContent = fmtShort(x) + '  X ' + (a && a[1] != null ? a[1].toFixed(1) : '-') + '   Y ' + (b && b[1] != null ? b[1].toFixed(1) : '-'); } });
+    // drivers
+    var dc = h('div', { class: 'card', style: 'margin-bottom:10px' }, [h('div', { class: 'lbl', style: 'margin-bottom:2px' }, ['What goes with ' + my.l.toLowerCase()]), h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['Day by day, X on the same day or the day before. Tap a row to explore it.'])]);
+    var dr = []; MET.forEach(function (x) { if (x.k === C.y) return; [0, 1].forEach(function (lag) { var q = pairs(x.k, C.y, 'daily', lag); if (q.xs.length < 60) return; var r_ = pearson(q.xs, q.ys); if (r_ != null) dr.push({ k: x.k, lag: lag, r: r_, n: q.xs.length }); }); });
+    dr = dr.filter(function (x) { return !(MK[x.k].g === 'Heart' && MK[C.y].g === 'Heart' && Math.abs(x.r) > .97); }).sort(function (a, b) { return Math.abs(b.r) - Math.abs(a.r); }).slice(0, 10);
+    var dt = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Measure']), h('th', {}, ['Timing']), h('th', {}, ['Link']), h('th', { style: 'text-align:right' }, ['r'])])]);
+    dr.forEach(function (x) { var wdt = Math.abs(x.r) * 50; dt.appendChild(h('tr', { class: 'click', onclick: function () { C.x = x.k; C.lag = x.lag; C.mode = 'daily'; renderCompare(); } }, [h('td', {}, [MK[x.k].l]), h('td', {}, [x.lag ? 'day before' : 'same day']),
+      h('td', {}, [h('div', { class: 'bar', html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' })]), h('td', { class: 'n' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2)])])); });
+    dc.appendChild(dr.length ? dt : h('div', { class: 'empty' }, ['Not enough overlapping data'])); right.appendChild(dc);
+    // around an event
+    var ec = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(ec);
+    ec.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['What changed around an event?']));
+    if (!S.events.length) { ec.appendChild(h('div', { class: 'empty' }, ['Add life events on the Log tab, such as when you met Aiza, then see how HRV, sleep and resting HR differ before and after.'])); return; }
+    if (!S.evSel || !S.events.some(function (e) { return e.id === S.evSel; })) S.evSel = S.events[0].id; var ev = S.events.find(function (e) { return e.id === S.evSel; });
+    var es = h('select', {}); S.events.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (e) { var o = h('option', { value: e.id }, [fmtDay(e.date) + '  ' + e.label]); if (e.id === S.evSel) o.selected = true; es.appendChild(o); }); es.addEventListener('change', function () { S.evSel = es.value; renderCompare(); });
+    var ws = h('select', {}); [30, 60, 90, 180].forEach(function (v) { var o = h('option', { value: v }, [v + ' days either side']); if (S.evWin === v) o.selected = true; ws.appendChild(o); }); ws.addEventListener('change', function () { S.evWin = +ws.value; renderCompare(); });
+    ec.appendChild(h('div', { class: 'formrow' }, [es, ws]));
+    var rows = aroundEvent(ev, S.evWin), et = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Metric']), h('th', { style: 'text-align:right' }, ['Before']), h('th', { style: 'text-align:right' }, ['After']), h('th', {}, ['Change (relative to normal variation)'])])]);
+    rows.forEach(function (x) { var good = MK[x.k].better ? (x.d * MK[x.k].better > 0) : null, col = good == null ? 'var(--ink-3)' : good ? 'var(--opt)' : 'var(--bad)', wdt = Math.min(50, Math.abs(x.d) * 35);
+      et.appendChild(h('tr', { class: 'click', onclick: function () { S.trendKey = x.k; selectTab('trends'); } }, [h('td', {}, [MK[x.k].l]), h('td', { class: 'n' }, [fmtMetric(x.k, x.a)]), h('td', { class: 'n' }, [fmtMetric(x.k, x.b)]),
+        h('td', {}, [h('div', { class: 'bar', html: '<i style="background:' + col + ';' + (x.d >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'delta' }, [chgText(x.k, x.diff, x.pct) + '  (effect ' + (x.d >= 0 ? '+' : '') + x.d.toFixed(2) + ')'])])])); });
+    ec.appendChild(rows.length ? et : h('div', { class: 'empty' }, ['Not enough data on both sides of this date (needs at least 12 days each side).']));
+    ec.appendChild(h('div', { class: 'note' }, ['An effect of 0.2 is small, 0.5 medium, 0.8 large. A change after an event is not proof the event caused it: sleep timing, alcohol, training and season may have shifted too, so check those rows as well.']));
+  }
+
+  // ================= Activity =================
+  function weekly(key) { var W = {}; S.dates.forEach(function (d) { var n = dayNum(d), mon = n - ((n + 3) % 7), v = S.D[d][key]; if (v == null) return; (W[mon] || (W[mon] = { s: 0, c: 0 })); W[mon].s += v; W[mon].c++; });
+    return Object.keys(W).map(Number).sort(function (a, b) { return a - b; }).filter(function (n) { return W[n].c === 7 || n + 6 > dayNum(S.dates[S.dates.length - 1]); }).map(function (n) { return [n, W[n].s]; }); }
   var SPORT = { all: 'All', run: 'Runs', ride: 'Rides', other: 'Other' };
-  function sportKind(a) { var s = String(a.sport || '').toLowerCase(); return /run/.test(s) ? 'run' : /ride|cycl|bike/.test(s) ? 'ride' : 'other'; }
-  function renderRuns() {
-    var p = $('p-runs'); p.innerHTML = ''; S.sport = S.sport || 'run';
-    p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Activities']), h('div', { class: 'sub' }, [S.acts.length + ' recorded'])])]));
-    var chips = h('div', { class: 'chips' }); Object.keys(SPORT).forEach(function (k) { chips.appendChild(h('button', { class: 'chip' + (S.sport === k ? ' on' : ''), onclick: function () { S.sport = k; renderRuns(); } }, [SPORT[k]])); }); p.appendChild(chips);
-    var list = S.acts.filter(function (a) { return S.sport === 'all' || sportKind(a) === S.sport; });
-    if (S.sport === 'run' && list.length > 1) { var wk = {}; list.forEach(function (a) { var d = new Date(a.start_time); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); var key = d.toISOString().slice(0, 10); wk[key] = (wk[key] || 0) + Number(a.distance_m || 0) / 1000; });
-      var keys = Object.keys(wk).sort(), pts = keys.map(function (q) { return [Date.parse(q) / 86400000, wk[q]]; }), c = chartCard('Weekly distance (km)'); p.appendChild(c);
-      lineChart(c.host, { h: 150, series: [{ pts: pts, color: 'var(--teal)', fill: true, width: 2, dots: true }], yMin: 0, xFmt: function (d) { return new Date(d * 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }, yFmt: function (v) { return Math.round(v); },
-        readout: function (x, y) { c.read.textContent = 'w/c ' + new Date(x * 86400000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + '  ' + y.toFixed(1) + ' km'; } }); }
-    if (!list.length) { p.appendChild(h('div', { class: 'card empty' }, ['No activities yet.'])); return; }
-    list.forEach(function (a) { var d = new Date(a.start_time);
-      p.appendChild(h('button', { class: 'card runrow', onclick: function () { openActivity(a); } }, [
-        h('div', { class: 't', html: esc(a.name || 'Activity') + '<span class="src">' + esc(a.source) + '</span>' }),
-        h('div', { class: 'm' }, [((a.distance_m || 0) / 1000).toFixed(2) + ' km']),
-        h('div', { class: 'd' }, [d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) + ' · ' + dur(a.moving_time_s || 0)]),
-        h('div', { class: 'm' }, [sportKind(a) === 'ride' ? ((a.distance_m / 1000) / (a.moving_time_s / 3600)).toFixed(1) + ' km/h' : pace(a.moving_time_s, a.distance_m) + ' /km' + (a.avg_hr ? ' · ' + Math.round(a.avg_hr) + ' bpm' : '')])])); });
+  function renderActivity() {
+    var p = $('p-activity'); p.innerHTML = ''; var runs = S.acts.filter(function (a) { return sportKind(a) === 'run'; }), list = S.acts.filter(function (a) { return S.sport === 'all' || sportKind(a) === S.sport; });
+    p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Activity']), h('div', { class: 'sub' }, [S.acts.length + ' recorded · ' + runs.length + ' runs'])])]));
+    var last = S.dates[S.dates.length - 1], r28 = S.D[last] && S.D[last].run_km_28d, longest = runs.reduce(function (m, a) { return Math.max(m, a.distance_m || 0); }, 0);
+    var yr = runs.filter(function (a) { return a.start_time >= (new Date().getFullYear() - 0) + '-01-01'; }).reduce(function (s, a) { return s + (a.distance_m || 0); }, 0) / 1000;
+    var st = h('div', { class: 'stats' }); [['Runs', runs.length], ['Run km this year', r1(yr)], ['Longest run', (longest / 1000).toFixed(1) + ' km'], ['Km per week (28d)', r28 != null ? r1(r28) : '-'], ['Rides', S.acts.filter(function (a) { return sportKind(a) === 'ride'; }).length], ['All km', r0(S.acts.reduce(function (s, a) { return s + (a.distance_m || 0); }, 0) / 1000)]].forEach(function (a) {
+      st.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [a[0]]), h('div', { class: 'v' }, [String(a[1])])])); }); p.appendChild(st);
+    p.appendChild(smoothCtl(renderActivity));
+    var cols = h('div', { class: 'cols act' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
+    var detailHost = h('div'); right.appendChild(detailHost);
+    var chips = h('div', { class: 'chips' }); Object.keys(SPORT).forEach(function (k) { chips.appendChild(h('button', { class: 'chip' + (S.sport === k ? ' on' : ''), onclick: function () { S.sport = k; renderActivity(); } }, [SPORT[k]])); }); left.appendChild(chips);
+    list.forEach(function (a) { var d = new Date(a.start_time), ride = sportKind(a) === 'ride';
+      left.appendChild(h('button', { class: 'card runrow' + (S.actSel && S.actSel.id === a.id ? ' sel' : ''), onclick: function () { S.actSel = a; if (window.innerWidth >= 900) renderActivity(); else openDetail(a); } }, [
+        h('div', { class: 't', html: esc(a.name || 'Activity') + '<span class="src">' + esc(a.source) + '</span>' }), h('div', { class: 'm' }, [((a.distance_m || 0) / 1000).toFixed(2) + ' km']),
+        h('div', { class: 'd' }, [d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: TZ }) + ' · ' + dur(a.moving_time_s || 0)]),
+        h('div', { class: 'm' }, [ride ? ((a.distance_m / 1000) / (a.moving_time_s / 3600)).toFixed(1) + ' km/h' : (a.moving_time_s && a.distance_m ? paceStr(a.moving_time_s / (a.distance_m / 1000)) + ' /km' : '-') + (a.avg_hr ? ' · ' + Math.round(a.avg_hr) + ' bpm' : '')])])); });
+    if (!list.length) left.appendChild(h('div', { class: 'card empty' }, ['No activities yet.']));
+    // right: charts
+    var wr = weekly('run_km'), wd = weekly('ride_km'), w = Math.max(1, Math.round(S.sm / 7)), sw = function (pts) { if (w <= 1) return pts; return pts.map(function (q, i) { var s = pts.slice(Math.max(0, i - Math.floor(w / 2)), i + Math.ceil(w / 2)).map(function (z) { return z[1]; }); return [q[0], avg(s)]; }); };
+    var wc = chartCard('Weekly distance (km)', '<span><i style="background:var(--teal)"></i>Running</span><span><i style="background:var(--accent2)"></i>Riding</span>' + (w > 1 ? '<span>smoothed over ~' + w + ' weeks</span>' : '')); right.appendChild(wc);
+    lineChart(wc.host, { h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: w > 1, noLine: w > 1, opacity: .7 }, { pts: w > 1 ? sw(wd) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: w > 1, noLine: w > 1, opacity: .7 }, { pts: w > 1 ? sw(wr) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
+      readSeries: 2, readout: function (x, y) { var b = wd.find(function (q) { return q[0] === x; }); wc.read.textContent = 'w/c ' + fmtShort(x) + '  run ' + r1(y) + ' km' + (b ? '  ride ' + r1(b[1]) + ' km' : ''); } });
+    var z2 = runs.filter(function (a) { return a.extra && a.extra.zone2_pace_s_km; }).sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; });
+    var fc = chartCard('Pace at Zone 2 heart rate (' + Z2[0] + ' to ' + Z2[1] + ' bpm, running only)', '<span>Higher on the chart is faster. Each point is one run.</span>'); right.appendChild(fc);
+    var zp = z2.map(function (a) { return [dayNum(localDate(a.start_time)), -a.extra.zone2_pace_s_km]; });
+    lineChart(fc.host, { h: 200, series: [{ pts: zp, color: 'var(--teal)', width: 2, dots: true, dotR: 3.2, dotOp: .9 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return paceStr(-v); }, readout: function (x, y) { fc.read.textContent = fmtShort(x) + '  ' + paceStr(-y) + ' /km'; } });
+    var lc = chartCard('Longest continuous run before heart rate passed ' + Z2[1] + ' (seconds)', '<span>Excludes the first 2.5 minutes. Run-walk runs only.</span>'); right.appendChild(lc);
+    var lp = runs.filter(function (a) { return a.extra && a.extra.longest_zone2_run_s != null && (a.extra.zone2_share || 0) > .3; }).sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; }).map(function (a) { return [dayNum(localDate(a.start_time)), a.extra.longest_zone2_run_s]; });
+    lineChart(lc.host, { h: 180, series: [{ pts: lp, color: 'var(--accent2)', width: 2, dots: true, dotR: 3.2, dotOp: .9 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0, readout: function (x, y) { lc.read.textContent = fmtShort(x) + '  ' + dur(y); } });
+    if (window.innerWidth >= 900 && S.actSel) renderDetailInto(detailHost, S.actSel);
   }
-  var Z2 = [125, 145]; // Zone 2 band from the training plan
-  function smooth(arr, n) { return arr.map(function (v, i) { var w = arr.slice(Math.max(0, i - n), i + n + 1).filter(function (x) { return x != null; }); return w.length ? avg(w) : null; }); }
-  function openActivity(a) {
-    var d = $('detail'), inner = d.firstElementChild; inner.innerHTML = ''; d.style.display = 'block'; d.scrollTop = 0; document.body.style.overflow = 'hidden';
+  function openDetail(a) { var d = $('detail'), inner = d.firstElementChild; inner.innerHTML = ''; d.style.display = 'block'; d.scrollTop = 0; document.body.style.overflow = 'hidden';
     var back = h('button', { class: 'iconbtn', onclick: function () { d.style.display = 'none'; document.body.style.overflow = ''; } }, ['‹']);
-    inner.appendChild(h('div', { class: 'head' }, [h('div', { class: 'datebar' }, [back, h('div', {}, [h('h1', {}, [a.name || 'Activity']), h('div', { class: 'sub' }, [new Date(a.start_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })])])])]));
-    var st = h('div', { class: 'stats' }), isRide = sportKind(a) === 'ride';
-    [['Distance', ((a.distance_m || 0) / 1000).toFixed(2) + ' km'], ['Time', dur(a.moving_time_s || 0)], [isRide ? 'Speed' : 'Pace', isRide ? ((a.distance_m / 1000) / (a.moving_time_s / 3600)).toFixed(1) + ' km/h' : pace(a.moving_time_s, a.distance_m) + ' /km'],
-     ['Avg HR', a.avg_hr ? Math.round(a.avg_hr) + ' bpm' : '–'], ['Max HR', a.max_hr ? Math.round(a.max_hr) + ' bpm' : '–'], ['Climb', a.elevation_gain_m != null ? Math.round(a.elevation_gain_m) + ' m' : '–']].forEach(function (x) {
-      st.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [x[0]]), h('div', { class: 'v' }, [x[1]])])); });
-    inner.appendChild(st);
-    var holder = h('div'); inner.appendChild(holder);
-    if (a.source !== 'garmin') { holder.appendChild(h('div', { class: 'card empty' }, ['Summary only. Second-by-second data is stored for Garmin activities.'])); return; }
+    inner.appendChild(h('div', { class: 'head' }, [h('div', { class: 'datebar' }, [back, h('div', {}, [h('h1', {}, [a.name || 'Activity'])])])])); var holder = h('div'); inner.appendChild(holder); renderDetailInto(holder, a); }
+  function renderDetailInto(host, a) {
+    var ride = sportKind(a) === 'ride', ex = a.extra || {}; host.appendChild(h('div', { class: 'head', style: 'margin-top:4px' }, [h('div', {}, [h('div', { class: 'lbl' }, ['Selected']), h('div', { style: 'font-weight:700;font-size:16px' }, [a.name || 'Activity']), h('div', { class: 'sub' }, [new Date(a.start_time).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: TZ })])])]));
+    var st = h('div', { class: 'stats' }); var items = [['Distance', ((a.distance_m || 0) / 1000).toFixed(2) + ' km'], ['Time', dur(a.moving_time_s || 0)], [ride ? 'Speed' : 'Pace', ride ? ((a.distance_m / 1000) / (a.moving_time_s / 3600)).toFixed(1) + ' km/h' : paceStr(a.moving_time_s / (a.distance_m / 1000)) + ' /km'], ['Avg HR', a.avg_hr ? Math.round(a.avg_hr) + ' bpm' : '-'], ['Max HR', a.max_hr ? Math.round(a.max_hr) + ' bpm' : '-'], ['Climb', a.elevation_gain_m != null ? Math.round(a.elevation_gain_m) + ' m' : '-']];
+    if (ride && ex.average_watts) items.push(['Avg power', Math.round(ex.average_watts) + ' W']); if (ride && ex.kilojoules) items.push(['Energy', Math.round(ex.kilojoules) + ' kJ']); if (ex.zone2_pace_s_km) items.push(['Zone 2 pace', paceStr(ex.zone2_pace_s_km) + ' /km']); if (ex.zone2_share != null && !ride) items.push(['Time in Zone 2', Math.round(ex.zone2_share * 100) + '%']);
+    items.forEach(function (x) { st.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [x[0]]), h('div', { class: 'v' }, [x[1]])])); }); host.appendChild(st);
+    var holder = h('div'); host.appendChild(holder); if (a.source !== 'garmin') { holder.appendChild(h('div', { class: 'card empty' }, ['Summary only. Second-by-second data is stored for Garmin activities.'])); return; }
     holder.appendChild(h('div', { class: 'card empty' }, ['Loading…']));
-    supa.from('health_activity_streams').select('*').eq('activity_id', a.id).maybeSingle().then(function (res) { holder.innerHTML = ''; var s = res.data;
-      if (!s || !s.t) { holder.appendChild(h('div', { class: 'card empty' }, ['No stream stored for this activity yet.'])); return; }
-      var t = s.t, mins = function (x) { return Math.round(x / 60) + 'm'; }, tmax = t[t.length - 1];
-      function mk(title, vals, color, fmt, unit, opts) { if (!vals) return; var pts = t.map(function (x, i) { return [x, vals[i]]; }), c = chartCard(title); holder.appendChild(c);
-        lineChart(c.host, Object.assign({ h: 160, series: [{ pts: pts, color: color, width: 1.5, fill: opts && opts.fill }], xMin: 0, xMax: tmax, xFmt: mins, yFmt: fmt, xTicks: niceTicks(0, tmax / 60, 5).map(function (x) { return x * 60; }),
-          readout: function (x, y) { c.read.textContent = dur(x) + '  ' + fmt(y) + ' ' + unit; } }, opts || {})); }
-      mk('Heart rate', s.hr, 'var(--c-hr)', function (v) { return Math.round(v); }, 'bpm', { bands: [{ from: Z2[0], to: Z2[1], color: 'var(--opt)', op: .14 }] });
-      if (s.speed) { var sp = smooth(s.speed, 15).map(function (v) { return v && v > 0.5 ? 1000 / v / 60 : null; }); // min per km
-        var pts = t.map(function (x, i) { return [x, sp[i]]; }), c = chartCard('Pace (30s smoothing, faster is higher)'); holder.appendChild(c);
-        var inv = pts.map(function (q) { return [q[0], q[1] == null ? null : -q[1]]; });
-        lineChart(c.host, { h: 160, series: [{ pts: inv, color: 'var(--c-pace)', width: 1.5 }], xMin: 0, xMax: tmax, xFmt: mins, xTicks: niceTicks(0, tmax / 60, 5).map(function (x) { return x * 60; }),
-          yFmt: function (v) { v = -v; return Math.floor(v) + ':' + String(Math.round(v % 1 * 60)).padStart(2, '0'); }, readout: function (x, y) { var v = -y; c.read.textContent = dur(x) + '  ' + Math.floor(v) + ':' + String(Math.round(v % 1 * 60)).padStart(2, '0') + ' /km'; } }); }
-      mk('Cadence', s.cadence ? smooth(s.cadence, 5) : null, 'var(--c-temp)', function (v) { return Math.round(v); }, 'spm');
-      mk('Elevation', s.altitude, 'var(--c-alt)', function (v) { return Math.round(v); }, 'm', { fill: true });
-    });
+    supa.from('health_activity_streams').select('*').eq('activity_id', a.id).maybeSingle().then(function (res) { holder.innerHTML = ''; var s = res.data; if (!s || !s.t) { holder.appendChild(h('div', { class: 'card empty' }, ['No stream stored for this activity yet.'])); return; }
+      var t = s.t, mins = function (x) { return Math.round(x / 60) + 'm'; }, tmax = t[t.length - 1], tk = niceTicks(0, tmax / 60, 6).map(function (x) { return x * 60; }); var grid = h('div', { class: 'cols c2' }); holder.appendChild(grid);
+      function sm(arr, n) { return arr.map(function (v, i) { var w = arr.slice(Math.max(0, i - n), i + n + 1).filter(function (x) { return x != null; }); return w.length ? avg(w) : null; }); }
+      function mk(title, vals, color, fmt, unit, opts) { if (!vals) return; var pts = t.map(function (x, i) { return [x, vals[i]]; }), c = chartCard(title); grid.appendChild(c); lineChart(c.host, Object.assign({ h: 170, series: [{ pts: pts, color: color, width: 1.5, fill: opts && opts.fill }], xMin: 0, xMax: tmax, xFmt: mins, yFmt: fmt, xTicks: tk, readout: function (x, y) { c.read.textContent = dur(x) + '  ' + fmt(y) + ' ' + unit; } }, opts || {})); }
+      mk('Heart rate', s.hr, 'var(--c-hr)', r0, 'bpm', { bands: [{ from: Z2[0], to: Z2[1], color: 'var(--opt)', op: .14 }] });
+      if (s.speed) { var spd = sm(s.speed, 15).map(function (v) { return v && v > .5 ? -1000 / v : null; }), c = chartCard('Pace (30 s smoothing)'); grid.appendChild(c); lineChart(c.host, { h: 170, series: [{ pts: t.map(function (x, i) { return [x, spd[i]]; }), color: 'var(--teal)', width: 1.5 }], xMin: 0, xMax: tmax, xFmt: mins, xTicks: tk, yFmt: function (v) { return paceStr(-v); }, readout: function (x, y) { c.read.textContent = dur(x) + '  ' + paceStr(-y) + ' /km'; } }); }
+      mk('Cadence', s.cadence ? sm(s.cadence, 5) : null, 'var(--c-temp)', r0, 'spm'); mk('Elevation', s.altitude, 'var(--c-alt)', r0, 'm', { fill: true }); });
   }
 
-  // ---------- Data + shell ----------
+  // ================= Log =================
+  var CI = [['mood', 'Mood', ['low', '', '', '', 'high']], ['stress', 'Stress', ['calm', '', '', '', 'high']], ['energy', 'Energy', ['low', '', '', '', 'high']]];
+  function todayLocal() { return new Date().toLocaleDateString('en-CA', { timeZone: TZ }); }
+  function renderLog() {
+    var p = $('p-log'); p.innerHTML = ''; p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Log']), h('div', { class: 'sub' }, ['Daily check-in and life events'])])]));
+    var cols = h('div', { class: 'cols c2' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
+    var date = S.ciDate || todayLocal(), cur = S.checkins[date] || {}, form = { mood: cur.mood || null, stress: cur.stress || null, energy: cur.energy || null };
+    var cc = h('div', { class: 'card', style: 'margin-bottom:10px' }); left.appendChild(cc); cc.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:8px' }, ['Check-in']));
+    var di = h('input', { type: 'date', value: date }); di.addEventListener('change', function () { S.ciDate = di.value || todayLocal(); renderLog(); }); cc.appendChild(h('div', { style: 'margin-bottom:10px' }, [di]));
+    CI.forEach(function (c) { var row = h('div', { class: 'rate' }); [1, 2, 3, 4, 5].forEach(function (v) { var b = h('button', { class: form[c[0]] === v ? 'on' : '', type: 'button' }, [String(v)]); b.addEventListener('click', function () { form[c[0]] = form[c[0]] === v ? null : v; row.querySelectorAll('button').forEach(function (x, i) { x.className = form[c[0]] === i + 1 ? 'on' : ''; }); }); row.appendChild(b); });
+      cc.appendChild(h('div', { style: 'margin-bottom:10px' }, [h('div', { class: 'row', style: 'display:flex;justify-content:space-between;margin-bottom:4px' }, [h('span', { style: 'font-size:13px;font-weight:600' }, [c[1]]), h('span', { class: 'sub' }, ['1 = ' + c[2][0] + ', 5 = ' + c[2][4]])]), row])); });
+    var note = h('textarea', { rows: 2, placeholder: 'Anything that might matter: alcohol, a hard day, travel, illness…' }); note.value = cur.note || ''; cc.appendChild(note);
+    var save = h('button', { class: 'pill', style: 'margin-top:10px;width:100%', type: 'button' }, ['Save check-in']); save.addEventListener('click', function () { var row = { date: date, mood: form.mood, stress: form.stress, energy: form.energy, note: note.value || null, updated_at: new Date().toISOString() };
+      supa.from('health_checkins').upsert(row).then(function (res) { if (res.error) { toast('Could not save: ' + res.error.message); return; } S.checkins[date] = row; buildTable(); toast('Saved'); renderLog(); }); }); cc.appendChild(save);
+    var recent = Object.keys(S.checkins).sort().reverse().slice(0, 10); if (recent.length) { var rt = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Date']), h('th', {}, ['Mood']), h('th', {}, ['Stress']), h('th', {}, ['Energy']), h('th', {}, ['Note'])])]);
+      recent.forEach(function (d) { var c = S.checkins[d]; rt.appendChild(h('tr', { class: 'click', onclick: function () { S.ciDate = d; renderLog(); } }, [h('td', {}, [d]), h('td', { class: 'n' }, [c.mood == null ? '-' : String(c.mood)]), h('td', { class: 'n' }, [c.stress == null ? '-' : String(c.stress)]), h('td', { class: 'n' }, [c.energy == null ? '-' : String(c.energy)]), h('td', {}, [c.note || ''])])); });
+      left.appendChild(h('div', { class: 'card' }, [h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['Recent']), rt])); }
+    // events
+    var ec = h('div', { class: 'card', style: 'margin-bottom:10px' }); right.appendChild(ec); ec.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:8px' }, ['Add a life event']));
+    var ed = h('input', { type: 'date', value: todayLocal() }), el = h('input', { type: 'text', placeholder: 'e.g. Met Aiza, started new job, moved flat' }), ek = h('select', {}); [['life', 'Life'], ['training', 'Training'], ['health', 'Health'], ['work', 'Work']].forEach(function (a) { ek.appendChild(h('option', { value: a[0] }, [a[1]])); });
+    ec.appendChild(h('div', { class: 'formrow' }, [ed, ek])); ec.appendChild(h('div', { style: 'margin-bottom:8px' }, [el]));
+    var add = h('button', { class: 'pill', type: 'button', style: 'width:100%' }, ['Add event']); add.addEventListener('click', function () { if (!el.value.trim() || !ed.value) { toast('Add a date and a label'); return; }
+      supa.from('health_events').insert({ date: ed.value, label: el.value.trim(), kind: ek.value }).select().then(function (res) { if (res.error) { toast('Could not add: ' + res.error.message); return; } S.events = S.events.concat(res.data); S.events.sort(function (a, b) { return a.date < b.date ? -1 : 1; }); toast('Added'); renderLog(); }); }); ec.appendChild(add);
+    var lc = h('div', { class: 'card' }); right.appendChild(lc); lc.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['Events']));
+    if (!S.events.length) lc.appendChild(h('div', { class: 'empty' }, ['No events yet.']));
+    S.events.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (e) { var del = h('button', { class: 'x', 'aria-label': 'Delete event', type: 'button' }, ['×']); del.addEventListener('click', function () { if (!confirm('Delete "' + e.label + '"?')) return; supa.from('health_events').delete().eq('id', e.id).then(function (res) { if (res.error) { toast('Could not delete'); return; } S.events = S.events.filter(function (x) { return x.id !== e.id; }); renderLog(); }); });
+      lc.appendChild(h('div', { style: 'display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--hair)' }, [h('span', { class: 'num sub', style: 'min-width:92px' }, [e.date]), h('span', { class: 'src', style: 'margin:0' }, [e.kind]), h('span', { style: 'flex:1;font-size:13px' }, [e.label]), del])); });
+  }
+
+  // ================= Data + shell =================
   function loadAll() {
-    var q1 = supa.from('health_uh_daily').select('*').order('date', { ascending: true }).range(0, 4999);
-    var q2 = supa.from('health_activities').select('*').order('start_time', { ascending: false }).range(0, 4999);
-    return Promise.all([q1, q2]).then(function (rs) {
+    return Promise.all([supa.from('health_uh_daily').select('*').order('date', { ascending: true }).range(0, 4999), supa.from('health_activities').select('*').order('start_time', { ascending: false }).range(0, 4999),
+      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999)]).then(function (rs) {
       if (rs[0].error) throw rs[0].error; if (rs[1].error) throw rs[1].error;
       S.daily = rs[0].data || []; S.byDate = {}; S.daily.forEach(function (r) { S.byDate[r.date] = r; }); S.acts = rs[1].data || [];
-      // open on the latest day that has a sleep score
-      var withSleep = S.daily.filter(function (r) { return r.sleep_score != null; }); S.date = (withSleep.length ? withSleep[withSleep.length - 1] : S.daily[S.daily.length - 1] || {}).date || new Date().toISOString().slice(0, 10);
-      renderToday(); renderSleep(); renderTrends(); renderRuns();
-    });
+      S.events = rs[2].error ? [] : (rs[2].data || []); S.checkins = {}; (rs[3].error ? [] : (rs[3].data || [])).forEach(function (c) { S.checkins[c.date] = c; });
+      buildTable(); var withSleep = S.daily.filter(function (r) { return r.sleep_score != null; }); S.date = (withSleep.length ? withSleep[withSleep.length - 1] : S.daily[S.daily.length - 1] || {}).date || todayLocal();
+      renderAll(); });
   }
-  function selectTab(name) { document.querySelectorAll('.page').forEach(function (e) { e.classList.toggle('on', e.id === 'p-' + name); });
-    document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
-    if (name === 'trends') renderTrends(); window.scrollTo(0, 0); }
+  var RENDER = { today: renderToday, sleep: renderSleep, trends: renderTrends, compare: renderCompare, activity: renderActivity, log: renderLog };
+  function curTab() { var e = document.querySelector('.page.on'); return e ? e.id.slice(2) : 'today'; }
+  function renderAll() { renderToday(); renderSleep(); renderTrends(); renderCompare(); renderActivity(); renderLog(); }
+  function selectTab(name) { document.querySelectorAll('.page').forEach(function (e) { e.classList.toggle('on', e.id === 'p-' + name); }); document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
+    if (S.daily.length) RENDER[name](); window.scrollTo(0, 0); }
   document.querySelectorAll('#tabs button').forEach(function (b) { b.addEventListener('click', function () { selectTab(b.getAttribute('data-tab')); }); });
-
+  var rz; window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { if (S.daily.length) RENDER[curTab()](); }, 220); });
   function show(authed) { $('login').style.display = authed ? 'none' : 'flex'; $('app').style.display = authed ? 'block' : 'none'; }
   function boot() { show(true); $('p-today').innerHTML = '<div class="empty">Loading…</div>'; loadAll().catch(function (e) { $('p-today').innerHTML = '<div class="card empty">Could not load data: ' + esc(e.message || e) + '</div>'; }); }
-  $('login-btn').addEventListener('click', function () { $('login-error').textContent = '';
-    supa.auth.signInWithPassword({ email: $('login-email').value.trim(), password: $('login-password').value }).then(function (res) { if (res.error) $('login-error').textContent = res.error.message; else boot(); }); });
+  $('login-btn').addEventListener('click', function () { $('login-error').textContent = ''; supa.auth.signInWithPassword({ email: $('login-email').value.trim(), password: $('login-password').value }).then(function (res) { if (res.error) $('login-error').textContent = res.error.message; else boot(); }); });
   $('login-password').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('login-btn').click(); });
   supa.auth.getSession().then(function (res) { if (res.data && res.data.session) boot(); else show(false); });
 })();
