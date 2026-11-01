@@ -272,6 +272,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'active_min', l: 'Training time (day)', u: 'min', f: r0, sum: true, g: 'Training' },
     { k: 'active_min_7d', l: 'Training min, last 7 days', u: 'min', f: r0, g: 'Training' },
     { k: 'activity', l: 'Activity day (1 = yes)', f: r0, sum: true, g: 'Training' },
+    { k: 'load', l: 'Training load (day)', u: 'pts', f: r0, sum: true, g: 'Training' },
+    { k: 'load_7d', l: 'Training load, last 7 days', u: 'pts', f: r0, g: 'Training' },
+    { k: 'load_28d', l: 'Training load per week, last 28 days', u: 'pts', f: r0, g: 'Training' },
     { k: 'climb_m', l: 'Climbing (day)', u: 'm', f: r0, sum: true, g: 'Training' },
     { k: 'over_pint', l: 'Over a pint (1 = yes)', f: r0, sum: true, better: -1, g: 'Drinking' },
     { k: 'over_pint_7d', l: 'Days over a pint, last 7 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
@@ -281,7 +284,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'energy', l: 'Energy', f: r1, better: 1, g: 'Check-in' }
   ];
   var MK = {}; MET.forEach(function (m) { MK[m.k] = m; });
-  var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'over_pint_7d', 'mood', 'stress', 'energy'];
+  var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
 
   // ================= State =================
   var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
@@ -313,36 +316,40 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   function toast(msg) { var t = h('div', { style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:13px;z-index:50' }, [msg]); document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200); }
 
   // ================= Derived daily table =================
+  // Training load per activity: Banister TRIMP = minutes x HRr x 0.64 x e^(1.92 x HRr), HRr = (avg HR - resting) / (max - resting).
+  // Heart rate is the common yardstick, so a long easy walk, a hard short run and a ride land on one scale. Where an activity has no
+  // heart rate, a typical intensity for that sport is used. Resting and max HR are personal constants (see HR_REST, HR_MAX).
+  var HR_REST = 55, HR_MAX = 205, DEFAULT_HRR = { run: .72, ride: .58, walk: .3, hike: .38, yoga: .2, other: .4 };
+  function loadKind(a) { var s = String(a.sport || '').toLowerCase(); return /run/.test(s) ? 'run' : /ride|cycl|bike/.test(s) ? 'ride' : /walk/.test(s) ? 'walk' : /hike/.test(s) ? 'hike' : /yoga|stretch|pilates/.test(s) ? 'yoga' : 'other'; }
+  function trimp(a) { var mn = (a.moving_time_s || 0) / 60; if (!mn) return 0; var hrr = a.avg_hr != null && Number(a.avg_hr) > 0 ? (Number(a.avg_hr) - HR_REST) / (HR_MAX - HR_REST) : DEFAULT_HRR[loadKind(a)];
+    hrr = Math.max(0.05, Math.min(1, hrr)); return mn * hrr * 0.64 * Math.exp(1.92 * hrr); }
   function sportKind(a) { var s = String(a.sport || '').toLowerCase(); return /run/.test(s) ? 'run' : /ride|cycl|bike/.test(s) ? 'ride' : 'other'; }
   function buildTable() {
     var rows = S.daily; S.D = {}; S.dates = [];
     if (!rows.length) return;
     var first = rows[0].date, last = rows[rows.length - 1].date; if (S.acts.length) { var lastAct = localDate(S.acts[0].start_time); if (lastAct > last) last = lastAct; }
-    // coverage: which days each source can speak for
+    // days from the first recorded activity onward: no recorded activity counts as a rest day (0)
     var sAct = S.acts.filter(function (a) { return a.source === 'strava'; }).map(function (a) { return localDate(a.start_time); }).sort();
     var gAct = S.acts.filter(function (a) { return a.source === 'garmin'; }).map(function (a) { return localDate(a.start_time); }).sort();
     var sMin = sAct[0], sMax = sAct[sAct.length - 1], gMin = gAct[0];
-    function covRun(d) { return (sMin && d >= sMin && d <= sMax) || (gMin && d >= gMin); }
-    function covAll(d) { return sMin && d >= sMin && d <= sMax; }
-    function covAny(d) { return covAll(d) || (gMin && d >= gMin); }
     var firstAct = [sMin, gMin].filter(Boolean).sort()[0];
     var perDay = {}; S.actByDate = {};
-    S.acts.forEach(function (a) { var d = localDate(a.start_time), o = perDay[d] || (perDay[d] = { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }), km = (a.distance_m || 0) / 1000, mn = (a.moving_time_s || 0) / 60;
-      (S.actByDate[d] || (S.actByDate[d] = [])).push(a); o.n++; var k = sportKind(a); if (k === 'run') o.run_km += km; if (k === 'ride') o.ride_km += km; o.active_min += mn; o.climb_m += Number(a.elevation_gain_m || 0); });
+    S.acts.forEach(function (a) { var d = localDate(a.start_time), o = perDay[d] || (perDay[d] = { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, load: 0, n: 0 }), km = (a.distance_m || 0) / 1000, mn = (a.moving_time_s || 0) / 60;
+      (S.actByDate[d] || (S.actByDate[d] = [])).push(a); o.n++; var k = sportKind(a); if (k === 'run') o.run_km += km; if (k === 'ride') o.ride_km += km; o.active_min += mn; o.climb_m += Number(a.elevation_gain_m || 0); o.load += trimp(a); });
     var n0 = dayNum(first), n1 = dayNum(last), byDate = S.byDate;
     for (var n = n0; n <= n1; n++) { var d = dayStr(n), u = byDate[d] || {}, o = {};
       MET.forEach(function (m) { if (u[m.k] != null && !isNaN(Number(u[m.k]))) o[m.k] = Number(u[m.k]); });
       if (u.bedtime_start) { var p = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_start)), hh = +p.find(function (x) { return x.type === 'hour'; }).value % 24, mm = +p.find(function (x) { return x.type === 'minute'; }).value; o.bedtime = hh + mm / 60 + (hh < 14 ? 24 : 0); }
       if (u.bedtime_end) { var p2 = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_end)); o.wake = (+p2.find(function (x) { return x.type === 'hour'; }).value % 24) + (+p2.find(function (x) { return x.type === 'minute'; }).value) / 60; }
-      var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }; o.activity = (firstAct && d >= firstAct) ? (pd.n > 0 ? 1 : 0) : null; // no recorded activity counts as a rest day
-      if (covRun(d)) o.run_km = pd.run_km;
-      if (covAll(d)) { o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; }
+      var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, load: 0, n: 0 }; if (firstAct && d >= firstAct) o.load = pd.load; // no recorded activity = 0 load
+      o.activity = (firstAct && d >= firstAct) ? (pd.n > 0 ? 1 : 0) : null; // no recorded activity counts as a rest day
+      if (firstAct && d >= firstAct) { o.run_km = pd.run_km; o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; } // no recorded activity = 0
       if (S.drinks[d] != null) o.over_pint = S.drinks[d] ? 1 : 0;
       var ci = S.checkins[d]; if (ci) { if (ci.mood != null) o.mood = ci.mood; if (ci.stress != null) o.stress = ci.stress; if (ci.energy != null) o.energy = ci.energy; }
       S.D[d] = o; S.dates.push(d); }
     // rolling loads (only where every day in the window is covered)
     function roll(key, out, win, div) { for (var i = win - 1; i < S.dates.length; i++) { var s = 0, ok = true; for (var j = i - win + 1; j <= i; j++) { var v = S.D[S.dates[j]][key]; if (v == null) { ok = false; break; } s += v; } if (ok) S.D[S.dates[i]][out] = s / (div || 1); } }
-    roll('run_km', 'run_km_7d', 7, 1); roll('run_km', 'run_km_28d', 28, 4); roll('ride_km', 'ride_km_7d', 7, 1); roll('active_min', 'active_min_7d', 7, 1);
+    roll('run_km', 'run_km_7d', 7, 1); roll('run_km', 'run_km_28d', 28, 4); roll('ride_km', 'ride_km_7d', 7, 1); roll('active_min', 'active_min_7d', 7, 1); roll('load', 'load_7d', 7, 1); roll('load', 'load_28d', 28, 4);
     roll('over_pint', 'over_pint_7d', 7, 1); roll('over_pint', 'over_pint_28d', 28, 1);
   }
 
@@ -454,7 +461,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var sc = h('div', { class: 'scores' }); ['sleep_score', 'recovery_index', 'movement_index'].forEach(function (k) { var lv = band(r, k);
       var sp0 = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -45); }).map(function (x) { return S.D[x][k]; }), lv === 'none' ? 'var(--teal)' : COLORS[lv]);
       sc.appendChild(h('button', { class: 'card score', onclick: function () { S.trendKey = k; selectTab('trends'); } }, [h('div', { class: 'lbl' }, [MK[k].l]), h('div', { class: 'big num', style: 'color:' + (lv === 'none' ? 'var(--ink)' : COLORS[lv]) }, [r[k] == null ? '-' : String(r[k])]), h('div', { class: 'tag', html: dot(lv) + ' ' + esc(LABEL[lv] || '') }), h('div', { class: 'scorespark', html: sp0 })])); });
-    var keys = ['avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'bedtime', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'run_km_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
+    var keys = ['avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'bedtime', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'run_km_28d', 'load_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
     var g = h('div', { class: 'grid' }); keys.forEach(function (k) { var v = D[k]; if (v == null) return; var lv = band(r, k), m = MK[k], d = '', base = avg(S.dates.filter(function (x) { return x < S.date && x >= addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
       if (base != null && m.better) { var diff = v - base, pct = base ? diff / Math.abs(base) * 100 : 0; d = Math.abs(pct) >= 1 ? (diff > 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(0) + '% vs 30d' : '≈ 30d avg'; }
       var sp = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
@@ -602,7 +609,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 
 
   // ================= Heatmap =================
-  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'over_pint_7d', 'mood', 'stress', 'energy'];
+  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
   var BANDED = ['sleep_score', 'recovery_index', 'movement_index', 'total_sleep_min', 'time_in_bed_min', 'restorative_pct', 'efficiency', 'temp_dev_c'];
   // z is the distance from the measure's own average in standard deviations. better: 1 high is good, -1 high is bad, otherwise neutral.
   function heatFill(z, better) { var a = Math.min(1, 0.12 + Math.abs(z) / 2.2 * 0.88);
