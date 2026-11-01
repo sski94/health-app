@@ -720,10 +720,14 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   var OUTCOMES = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'bedtime', 'temp_dev_c', 'spo2', 'mood', 'stress', 'energy'];
   var CLUSTER = {}; [['hr', ['avg_hrv', 'sleep_rhr', 'avg_hr']], ['sleep', ['total_sleep_min', 'time_in_bed_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'light_min', 'awake_min', 'cycles_full']], ['body', ['temp_dev_c', 'avg_body_temp_c', 'spo2']], ['scores', ['sleep_score', 'recovery_index', 'movement_index']]].forEach(function (c_) { c_[1].forEach(function (k_) { CLUSTER[k_] = c_[0]; }); });
   function famOf(k) { return k.replace(/_(7d|28d)$/, ''); }
+  // Smoothed (or raw, when detail is at "points") values of every measure on the current detail setting, aligned to S.dates.
+  function smCols(sm) { var key = Math.round(sm * 10) + '|' + S.dates.length + '|' + Object.keys(S.drinks).length + '|' + S.acts.length; if (S.smc && S.smc.key === key) return S.smc.cols;
+    var cols = {}, d0 = dayNum(S.dates[0]), n = S.dates.length; MET.forEach(function (m) { var pts = series(m.k), sp = sm >= 1.5 ? smoothPts(pts, sm) : pts, arr = new Array(n); for (var i = 0; i < n; i++) arr[i] = null; sp.forEach(function (q) { if (q[1] != null) arr[q[0] - d0] = q[1]; }); cols[m.k] = arr; }); S.smc = { key: key, cols: cols }; return cols; }
+  function lagPair(xk, yk, L) { var c = smCols(S.sm), X = c[xk], Y = c[yk], xs = [], ys = []; for (var t = L; t < Y.length; t++) { var x = X[t - L], y = Y[t]; if (x != null && y != null) { xs.push(x); ys.push(y); } } return { xs: xs, ys: ys }; }
   function colOf(k) { return S.dates.map(function (d) { var v = S.D[d][k]; return v == null || isNaN(v) ? null : v; }); }
   function corr3(a, b) { var n = a.length; if (n < 8) return null; var ma = 0, mb = 0, i; for (i = 0; i < n; i++) { ma += a[i]; mb += b[i]; } ma /= n; mb /= n; var sab = 0, saa = 0, sbb = 0; for (i = 0; i < n; i++) { var x = a[i] - ma, y = b[i] - mb; sab += x * y; saa += x * x; sbb += y * y; } return saa > 0 && sbb > 0 ? sab / Math.sqrt(saa * sbb) : null; }
-  function causeLinks(mode) { var key = mode + '|' + S.dates.length + '|' + Object.keys(S.drinks).length + '|' + S.acts.length; S.clCache = S.clCache || {}; if (S.clCache[key]) return S.clCache[key];
-    var cols = {}; MET.forEach(function (m) { cols[m.k] = colOf(m.k); }); var lags = mode === 'lead' ? [1, 2, 3, 5, 7] : [0], out = {};
+  function causeLinks(mode) { var key = mode + '|' + Math.round(S.sm * 10) + '|' + S.dates.length + '|' + Object.keys(S.drinks).length + '|' + S.acts.length; S.clCache = S.clCache || {}; if (S.clCache[key]) return S.clCache[key];
+    var cols = smCols(S.sm); var lags = mode === 'lead' ? [1, 2, 3, 5, 7] : [0], out = {};
     OUTCOMES.forEach(function (yk) { MET.forEach(function (xm) { var xk = xm.k; if (xk === yk || famOf(xk) === famOf(yk) || /_28d$/.test(xk) || (CLUSTER[xk] && CLUSTER[xk] === CLUSTER[yk])) return; var best = null;
       lags.forEach(function (L) { var xs = [], ys = [], zs = [], X = cols[xk], Y = cols[yk];
         for (var t = L; t < Y.length; t++) { var x = X[t - L], y = Y[t], z = Y[t - L]; if (x == null || y == null || (L && z == null)) continue; xs.push(x); ys.push(y); zs.push(z); }
@@ -731,7 +735,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
         if (rxy == null) return; if (L === 0) { r = rxy; if (Math.abs(r) > .9) return; }
         else { var rxz = corr3(xs, zs), ryz = corr3(ys, zs); if (rxz == null || ryz == null || Math.abs(rxz) > .985 || Math.abs(ryz) > .985) return; r = (rxy - rxz * ryz) / Math.sqrt((1 - rxz * rxz) * (1 - ryz * ryz)); }
         if (!best || Math.abs(r) > Math.abs(best.r)) best = { x: xk, y: yk, lag: L, r: r, n: xs.length }; });
-      if (!best || Math.abs(best.r) < .1) return; var gk = famOf(xk) + '>' + yk; if (!out[gk] || Math.abs(best.r) > Math.abs(out[gk].r)) out[gk] = best; }); });
+      if (!best || Math.abs(best.r) < Math.max(.1, 1.96 / Math.sqrt(Math.max(8, best.n / Math.max(1, S.sm))))) return; var gk = famOf(xk) + '>' + yk; if (!out[gk] || Math.abs(best.r) > Math.abs(out[gk].r)) out[gk] = best; }); });
     var arr = Object.keys(out).map(function (k) { return out[k]; }).sort(function (a, b) { return Math.abs(b.r) - Math.abs(a.r); }); S.clCache[key] = arr; return arr; }
   var EV_KEYS = MOVING.concat(['bedtime', 'avg_hr', 'vo2_max']);
   function aroundEvent(ev, win) { var n0 = dayNum(ev.date), rows = [];
@@ -749,7 +753,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var tog = h('button', { class: 'sbtog', type: 'button', title: 'Show or hide the day and gap controls', 'aria-label': 'Show or hide the day and gap controls', onclick: function () { S.barCollapsed = !S.barCollapsed; bar.classList.toggle('collapsed', S.barCollapsed); tog.textContent = S.barCollapsed ? '\u25BE' : '\u25B4'; } }, [S.barCollapsed ? '\u25BE' : '\u25B4']);
     bar.appendChild(h('div', { class: 'sbrow' }, [h('span', { class: 'sbtag' }, ['X']), h('div', { style: 'flex:1' }, [metricSelect(C.x, function (v) { C.x = v; renderCompare(); })]), h('span', { class: 'sbtag' }, ['\u2192 Y']), h('div', { style: 'flex:1' }, [metricSelect(C.y, function (v) { C.y = v; renderCompare(); })]), tog]));
     bar.appendChild(h('div', { class: 'sbrow sbmore' }, [h('span', { class: 'sbtag' }, ['Per']), h('div', { style: 'flex:0 0 100px' }, [md]), h('span', { class: 'sbtag' }, ['Y is']), h('div', { style: 'flex:1' }, [lg])]));
-    bar.appendChild(h('div', { class: 'sbrow' }, [smoothCtl(function () { paintT(); })])); p.appendChild(bar);
+    bar.appendChild(h('div', { class: 'sbrow' }, [smoothCtl(function () { paintT(); fillCL(); fillRK(); })])); p.appendChild(bar);
     p.appendChild(h('div', { class: 'sub', style: 'margin:0 3px 10px;line-height:1.45' }, ['X is the possible cause, Y is the outcome. ' + (C.lag === 0 ? 'Pairs ' + mx.l + ' with ' + my.l + ' from the same ' + unit + '.' : 'Pairs ' + mx.l + ' on one ' + unit + ' with ' + my.l + ' ' + C.lag + ' ' + unit + (C.lag > 1 ? 's' : '') + ' later, to test whether something today shows up in the outcome later, such as drinking tonight and HRV tomorrow.')]));
     var cols = h('div', { class: 'cols c2' }); p.appendChild(cols); var pr = pairs(C.x, C.y, C.mode, C.lag), left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
     var sc = chartCard(my.l + ' against ' + mx.l.toLowerCase()); left.appendChild(sc); var rg = scatter(sc.host, pr, mx.l + (mx.u ? ' (' + mx.u + ')' : ''), my.l + (my.u ? ' (' + my.u + ')' : ''), function (v) { return mx.f === hm || mx.f === clock ? mx.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (v) { return my.f === hm || my.f === clock ? my.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (t) { sc.read.textContent = t; });
@@ -786,16 +790,21 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var cmS = h('select', {}); [['lead', 'Cause comes first'], ['same', 'Same day']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if (cmode === a[0]) o.selected = true; cmS.appendChild(o); }); cmS.addEventListener('change', function () { C.clMode = cmS.value; renderCompare(); });
     var coS = h('select', {}); coS.appendChild(h('option', { value: '' }, ['Any outcome'])); OUTCOMES.forEach(function (k_) { var o = h('option', { value: k_ }, ['Outcome: ' + MK[k_].l]); if (fo === k_) o.selected = true; coS.appendChild(o); }); coS.addEventListener('change', function () { C.clOut = coS.value; renderCompare(); });
     xc.appendChild(h('div', { class: 'formrow', style: 'margin-bottom:4px' }, [cmS, coS]));
+    var clBody = h('div'); xc.appendChild(clBody);
+    function fillCL() { clBody.innerHTML = '';
+      clBody.appendChild(h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['Using the current detail setting: ' + smoothName(S.sm) + '. Move the slider and this list re-ranks. Smoother settings treat neighbouring days as one, so the bar for a link rises with smoothing.']));
     var cl = causeLinks(cmode).filter(function (x) { return !fo || x.y === fo; }), clShown = C.clAll ? cl.slice(0, 60) : cl.slice(0, 10), clList = h('div', { class: 'rklist' });
-    var cstr = function (r_) { var a = Math.abs(r_); return a >= .3 ? 'clear' : a >= .18 ? 'modest' : 'slight'; };
-    clShown.forEach(function (x, ix) { var wdt = Math.min(50, Math.abs(x.r) * 120), on = x.x === C.x && x.y === C.y && x.lag === C.lag && C.mode === 'daily';
-      clList.appendChild(h('div', { class: 'rk' + (on ? ' sel' : ''), onclick: function () { C.x = x.x; C.y = x.y; C.lag = x.lag; C.mode = 'daily'; renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [
-        h('div', { style: 'min-width:0' }, [h('div', { class: 'nm' }, [(ix + 1) + '. ' + MK[x.x].l + '  \u2192  ' + MK[x.y].l]), h('div', { class: 'su' }, [(x.lag ? 'cause ' + x.lag + (x.lag > 1 ? ' days' : ' day') + ' earlier' : 'same day') + ' · ' + (x.r > 0 ? 'higher goes with higher' : 'higher goes with lower') + ' · ' + cstr(x.r)])]),
-        h('div', { style: 'min-width:0' }, [h('div', { class: 'bar', html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'rv' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2)])]),
-        h('div', {}, [])])); });
-    xc.appendChild(cl.length ? clList : h('div', { class: 'empty' }, ['No pair clears the bar with this much data yet.']));
-    if (cl.length > 10) xc.appendChild(h('button', { class: 'chip', type: 'button', style: 'margin-top:8px', onclick: function () { C.clAll = !C.clAll; renderCompare(); } }, [C.clAll ? 'Show fewer' : 'Show more (up to 60)']));
-    xc.appendChild(h('div', { class: 'sub', style: 'margin-top:6px' }, ['Tap a pair to load it into the graphs above. The number is a partial correlation for \u201Ccause comes first\u201D and a plain correlation for \u201Csame day\u201D. Daily values that move slowly (rolling totals, fitness) can look stronger than they are, and testing hundreds of pairs means some will be chance.']));
+      var cstr = function (r_) { var a = Math.abs(r_); return a >= .3 ? 'clear' : a >= .18 ? 'modest' : 'slight'; };
+      clShown.forEach(function (x, ix) { var wdt = Math.min(50, Math.abs(x.r) * 120), on = x.x === C.x && x.y === C.y && x.lag === C.lag && C.mode === 'daily';
+        clList.appendChild(h('div', { class: 'rk' + (on ? ' sel' : ''), onclick: function () { C.x = x.x; C.y = x.y; C.lag = x.lag; C.mode = 'daily'; renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [
+          h('div', { style: 'min-width:0' }, [h('div', { class: 'nm' }, [(ix + 1) + '. ' + MK[x.x].l + '  \u2192  ' + MK[x.y].l]), h('div', { class: 'su' }, [(x.lag ? 'cause ' + x.lag + (x.lag > 1 ? ' days' : ' day') + ' earlier' : 'same day') + ' · ' + (x.r > 0 ? 'higher goes with higher' : 'higher goes with lower') + ' · ' + cstr(x.r)])]),
+          h('div', { style: 'min-width:0' }, [h('div', { class: 'bar', html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'rv' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2)])]),
+          h('div', {}, [])])); });
+      clBody.appendChild(cl.length ? clList : h('div', { class: 'empty' }, ['No pair clears the bar at this detail level. Move the slider toward points to look at day-to-day links.']));
+      if (cl.length > 10) clBody.appendChild(h('button', { class: 'chip', type: 'button', style: 'margin-top:8px', onclick: function () { C.clAll = !C.clAll; renderCompare(); } }, [C.clAll ? 'Show fewer' : 'Show more (up to 60)']));
+      clBody.appendChild(h('div', { class: 'sub', style: 'margin-top:6px' }, ['Tap a pair to load it into the graphs above. The number is a partial correlation for \u201Ccause comes first\u201D and a plain correlation for \u201Csame day\u201D. Daily values that move slowly (rolling totals, fitness) can look stronger than they are, and testing hundreds of pairs means some will be chance.']));
+    }
+    fillCL();
     // ranked correlations against the outcome (Y): click a row to put that measure on X
     var dc = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(dc);
     dc.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:2px' }, ['Everything ranked against ' + my.l.toLowerCase()]));
@@ -806,21 +815,26 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     rkL.addEventListener('change', function () { C.rankLag = rkL.value; renderCompare(); });
     dc.appendChild(h('div', { class: 'formrow', style: 'margin-bottom:4px' }, [rkS, rkL]));
     dc.appendChild(h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['The gap is how many days earlier a measure is than ' + my.l + '. "Try gaps" picks whichever gap gives the strongest link for each measure.']));
-    var fam = function (k) { return k.replace(/_(7d|28d)$/, '').replace(/^days_/, ''); }, lags = (C.rankLag || 'best') === 'best' ? [0, 1, 2, 3, 5, 7] : [+C.rankLag], dr = [];
-    MET.forEach(function (x) { if (x.k === C.y || fam(x.k) === fam(C.y)) return; var best = null;
-      lags.forEach(function (lag) { var q = pairs(x.k, C.y, 'daily', lag, true); if (q.xs.length < 60) return; var r_ = pearson(q.xs, q.ys); if (r_ == null) return; var sc_ = (C.rank || 'strength') === 'pos' ? r_ : (C.rank === 'neg' ? -r_ : Math.abs(r_)); if (!best || sc_ > best.sc) best = { k: x.k, lag: lag, r: r_, n: q.xs.length, sc: sc_ }; });
-      if (best) dr.push(best); });
-    dr = dr.filter(function (x) { return !(MK[x.k].g === 'Heart' && MK[C.y].g === 'Heart' && Math.abs(x.r) > .97); }).sort(function (a, b) { return b.sc - a.sc; });
-    var strength = function (r_) { var a = Math.abs(r_); return a >= .5 ? 'strong' : a >= .3 ? 'moderate' : a >= .15 ? 'weak' : 'little or none'; };
-    var shown = C.rankAll ? dr : dr.slice(0, 12), list = h('div', { class: 'rklist' });
-    shown.forEach(function (x, ix) { var wdt = Math.abs(x.r) * 50, on = x.k === C.x && x.lag === C.lag && C.mode === 'daily';
-      list.appendChild(h('div', { class: 'rk' + (on ? ' sel' : ''), onclick: function () { C.x = x.k; C.lag = x.lag; C.mode = 'daily'; renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [
-        h('div', { style: 'min-width:0' }, [h('div', { class: 'nm' }, [(ix + 1) + '. ' + MK[x.k].l]), h('div', { class: 'su' }, [(x.lag ? x.lag + (x.lag > 1 ? ' days' : ' day') + ' earlier' : 'same day') + ' · ' + strength(x.r) + ' · ' + x.n + ' days of data'])]),
-        h('div', { style: 'min-width:0' }, [h('div', { class: 'bar', title: strength(x.r), html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'rv' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2)])]),
-        h('button', { class: 'add', type: 'button', title: 'Add to the timeline above', 'aria-label': 'Add ' + MK[x.k].l + ' to the timeline', onclick: function (ev) { ev.stopPropagation(); if (C.extra.indexOf(x.k) < 0 && x.k !== C.x && x.k !== C.y) C.extra.push(x.k); renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, ['+'])])); });
-    dc.appendChild(dr.length ? list : h('div', { class: 'empty' }, ['Not enough overlapping data']));
-    if (dr.length > 12) dc.appendChild(h('button', { class: 'chip', type: 'button', style: 'margin-top:8px', onclick: function () { C.rankAll = !C.rankAll; renderCompare(); } }, [C.rankAll ? 'Show fewer' : 'Show all ' + dr.length + ' measures']));
-    dc.appendChild(h('div', { class: 'sub', style: 'margin-top:6px' }, ['r runs from -1 to +1. Testing many measures at once means some strong-looking links will be chance, especially with few days, so treat the top of the list as leads to check, not conclusions.']));
+    var rkBody = h('div'); dc.appendChild(rkBody);
+    function fillRK() { rkBody.innerHTML = '';
+      rkBody.appendChild(h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['Based on: ' + smoothName(S.sm) + '.' + (S.sm > 20 ? ' At this much smoothing, slow trends line up with almost anything, so the numbers look stronger than they are. Use a shorter trend to judge a link.' : '')]));
+          var fam = function (k) { return k.replace(/_(7d|28d)$/, '').replace(/^days_/, ''); }, lags = (C.rankLag || 'best') === 'best' ? [0, 1, 2, 3, 5, 7] : [+C.rankLag], dr = [];
+      MET.forEach(function (x) { if (x.k === C.y || fam(x.k) === fam(C.y)) return; var best = null;
+        lags.forEach(function (lag) { var q = lagPair(x.k, C.y, lag); if (q.xs.length < 60) return; var r_ = pearson(q.xs, q.ys); if (r_ == null) return; var sc_ = (C.rank || 'strength') === 'pos' ? r_ : (C.rank === 'neg' ? -r_ : Math.abs(r_)); if (!best || sc_ > best.sc) best = { k: x.k, lag: lag, r: r_, n: q.xs.length, sc: sc_ }; });
+        if (best) dr.push(best); });
+      dr = dr.filter(function (x) { return !(MK[x.k].g === 'Heart' && MK[C.y].g === 'Heart' && Math.abs(x.r) > .97); }).sort(function (a, b) { return b.sc - a.sc; });
+      var strength = function (r_) { var a = Math.abs(r_); return a >= .5 ? 'strong' : a >= .3 ? 'moderate' : a >= .15 ? 'weak' : 'little or none'; };
+      var shown = C.rankAll ? dr : dr.slice(0, 12), list = h('div', { class: 'rklist' });
+      shown.forEach(function (x, ix) { var wdt = Math.abs(x.r) * 50, on = x.k === C.x && x.lag === C.lag && C.mode === 'daily';
+        list.appendChild(h('div', { class: 'rk' + (on ? ' sel' : ''), onclick: function () { C.x = x.k; C.lag = x.lag; C.mode = 'daily'; renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [
+          h('div', { style: 'min-width:0' }, [h('div', { class: 'nm' }, [(ix + 1) + '. ' + MK[x.k].l]), h('div', { class: 'su' }, [(x.lag ? x.lag + (x.lag > 1 ? ' days' : ' day') + ' earlier' : 'same day') + ' · ' + strength(x.r) + ' · ' + x.n + ' days of data'])]),
+          h('div', { style: 'min-width:0' }, [h('div', { class: 'bar', title: strength(x.r), html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'rv' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2)])]),
+          h('button', { class: 'add', type: 'button', title: 'Add to the timeline above', 'aria-label': 'Add ' + MK[x.k].l + ' to the timeline', onclick: function (ev) { ev.stopPropagation(); if (C.extra.indexOf(x.k) < 0 && x.k !== C.x && x.k !== C.y) C.extra.push(x.k); renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, ['+'])])); });
+      rkBody.appendChild(dr.length ? list : h('div', { class: 'empty' }, ['Not enough overlapping data']));
+      if (dr.length > 12) rkBody.appendChild(h('button', { class: 'chip', type: 'button', style: 'margin-top:8px', onclick: function () { C.rankAll = !C.rankAll; renderCompare(); } }, [C.rankAll ? 'Show fewer' : 'Show all ' + dr.length + ' measures']));
+      rkBody.appendChild(h('div', { class: 'sub', style: 'margin-top:6px' }, ['r runs from -1 to +1. Testing many measures at once means some strong-looking links will be chance, especially with few days, so treat the top of the list as leads to check, not conclusions.']));
+    }
+    fillRK();
     // around an event
     var ec = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(ec);
     ec.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['What changed around an event?']));
