@@ -273,16 +273,19 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'active_min_7d', l: 'Training min, last 7 days', u: 'min', f: r0, g: 'Training' },
     { k: 'activity', l: 'Activity day (1 = yes)', f: r0, sum: true, g: 'Training' },
     { k: 'climb_m', l: 'Climbing (day)', u: 'm', f: r0, sum: true, g: 'Training' },
+    { k: 'over_pint', l: 'Over a pint (1 = yes)', f: r0, sum: true, better: -1, g: 'Drinking' },
+    { k: 'over_pint_7d', l: 'Days over a pint, last 7 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
+    { k: 'over_pint_28d', l: 'Days over a pint, last 28 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
     { k: 'mood', l: 'Mood', f: r1, better: 1, g: 'Check-in' },
     { k: 'stress', l: 'Stress', f: r1, better: -1, g: 'Check-in' },
     { k: 'energy', l: 'Energy', f: r1, better: 1, g: 'Check-in' }
   ];
   var MK = {}; MET.forEach(function (m) { MK[m.k] = m; });
-  var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'mood', 'stress', 'energy'];
+  var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'over_pint_7d', 'mood', 'stress', 'energy'];
 
   // ================= State =================
-  var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, date: null, nightCache: {},
-    trendKey: 'avg_hrv', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
+  var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
+    trendKey: 'avg_hrv', trendCmp: '', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
     cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' }, actByDate: {} };
   try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; if (sv_.heatMode) S.heat.mode = sv_.heatMode; } catch (e) {}
   function savePrefs() { try { localStorage.setItem('health.prefs', JSON.stringify({ sm: S.sm, showEvents: S.showEvents, heatMode: S.heat.mode })); } catch (e) {} }
@@ -333,11 +336,13 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }; o.activity = covAny(d) ? (pd.n > 0 ? 1 : 0) : null;
       if (covRun(d)) o.run_km = pd.run_km;
       if (covAll(d)) { o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; }
+      if (S.drinks[d] != null) o.over_pint = S.drinks[d] ? 1 : 0;
       var ci = S.checkins[d]; if (ci) { if (ci.mood != null) o.mood = ci.mood; if (ci.stress != null) o.stress = ci.stress; if (ci.energy != null) o.energy = ci.energy; }
       S.D[d] = o; S.dates.push(d); }
     // rolling loads (only where every day in the window is covered)
     function roll(key, out, win, div) { for (var i = win - 1; i < S.dates.length; i++) { var s = 0, ok = true; for (var j = i - win + 1; j <= i; j++) { var v = S.D[S.dates[j]][key]; if (v == null) { ok = false; break; } s += v; } if (ok) S.D[S.dates[i]][out] = s / (div || 1); } }
     roll('run_km', 'run_km_7d', 7, 1); roll('run_km', 'run_km_28d', 28, 4); roll('ride_km', 'ride_km_7d', 7, 1); roll('active_min', 'active_min_7d', 7, 1);
+    roll('over_pint', 'over_pint_7d', 7, 1); roll('over_pint', 'over_pint_28d', 28, 1);
   }
 
   // ================= Series, smoothing, stats =================
@@ -369,25 +374,29 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   function niceTicks(lo, hi, n) { var span = hi - lo || 1, step = Math.pow(10, Math.floor(Math.log10(span / n))), err = span / n / step; step *= err >= 7 ? 10 : err >= 3 ? 5 : err >= 1.5 ? 2 : 1; var t = [], v = Math.ceil(lo / step) * step; for (; v <= hi + 1e-9; v += step) t.push(+v.toFixed(6)); return t; }
   /* cfg: {h,series:[{pts,color,width,dots,fill,opacity}],xFmt,yFmt,xMin,xMax,yMin,yMax,xTicks,bands:[{from,to,color,op}],markers:[{x,label}],readout} */
   function lineChart(host, cfg) {
-    var W = host.clientWidth || 340, H = cfg.h || 180, P = { l: 38, r: 8, t: cfg.markers && cfg.markers.length ? 18 : 8, b: 20 };
-    var all = []; cfg.series.forEach(function (s) { s.pts.forEach(function (p) { if (p[1] != null) all.push(p); }); }); host.innerHTML = '';
+    var hasR = cfg.series.some(function (s) { return s.axis2 && s.pts.some(function (p) { return p[1] != null; }); });
+    var W = host.clientWidth || 340, H = cfg.h || 180, P = { l: 38, r: hasR ? 46 : 8, t: cfg.markers && cfg.markers.length ? 18 : 8, b: 20 };
+    var all = [], prim = [], sec = []; cfg.series.forEach(function (s) { s.pts.forEach(function (p) { if (p[1] != null) { all.push(p); (s.axis2 ? sec : prim).push(p); } }); }); host.innerHTML = '';
     if (!all.length) { host.innerHTML = '<div class="empty">No data in this range</div>'; return; }
     var x0 = cfg.xMin != null ? cfg.xMin : Math.min.apply(null, all.map(function (p) { return p[0]; })), x1 = cfg.xMax != null ? cfg.xMax : Math.max.apply(null, all.map(function (p) { return p[0]; }));
-    var ys = all.map(function (p) { return p[1]; }), y0 = cfg.yMin != null ? cfg.yMin : Math.min.apply(null, ys), y1 = cfg.yMax != null ? cfg.yMax : Math.max.apply(null, ys);
+    var ys = (prim.length ? prim : all).map(function (p) { return p[1]; }), y0 = cfg.yMin != null ? cfg.yMin : Math.min.apply(null, ys), y1 = cfg.yMax != null ? cfg.yMax : Math.max.apply(null, ys);
     if (y0 === y1) { y0 -= 1; y1 += 1; } var pad = (y1 - y0) * 0.08; if (cfg.yMin == null) y0 -= pad; if (cfg.yMax == null) y1 += pad;
-    var sx = function (x) { return P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r); }, sy = function (y) { return H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b); };
+    var y20 = 0, y21 = 1; if (hasR) { var ys2 = sec.map(function (p) { return p[1]; }); y20 = Math.min.apply(null, ys2); y21 = Math.max.apply(null, ys2); if (y20 === y21) { y20 -= 1; y21 += 1; } var pd2 = (y21 - y20) * 0.08; y20 -= pd2; y21 += pd2; }
+    var sx = function (x) { return P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r); }, sy = function (y) { return H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b); }, sy2 = function (y) { return H - P.b - (y - y20) / ((y21 - y20) || 1) * (H - P.t - P.b); };
     var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'ch', role: 'img' }); host.appendChild(svg);
     (cfg.bands || []).forEach(function (b) { var ya = sy(Math.min(b.to, y1)), yb = sy(Math.max(b.from, y0)); if (yb > ya) sv('rect', { x: P.l, y: ya, width: W - P.l - P.r, height: yb - ya, fill: b.color, opacity: b.op || .12 }, svg); });
     niceTicks(y0, y1, Math.max(3, Math.round((H - P.t - P.b) / 42))).forEach(function (t) { sv('line', { x1: P.l, x2: W - P.r, y1: sy(t), y2: sy(t), stroke: 'var(--c-grid)', 'stroke-width': 1 }, svg);
       var tx = sv('text', { x: P.l - 5, y: sy(t) + 3, 'text-anchor': 'end' }, svg); tx.textContent = cfg.yFmt ? cfg.yFmt(t) : t; });
+    if (hasR) niceTicks(y20, y21, 4).forEach(function (t) { var tx = sv('text', { x: W - P.r + 5, y: sy2(t) + 3, 'text-anchor': 'start' }, svg); tx.setAttribute('style', 'fill:' + (cfg.axis2Color || 'var(--accent2)')); tx.textContent = cfg.yFmt2 ? cfg.yFmt2(t) : t; });
     var xt = cfg.xTicks || niceTicks(x0, x1, Math.max(3, Math.round(W / 110)));
     xt.forEach(function (t, i) { var tx = sv('text', { x: sx(t), y: H - 5, 'text-anchor': i === 0 ? 'start' : i === xt.length - 1 ? 'end' : 'middle' }, svg); tx.textContent = cfg.xFmt ? cfg.xFmt(t) : t; });
     (cfg.markers || []).forEach(function (m) { if (m.x < x0 || m.x > x1) return; var xx = sx(m.x); sv('line', { x1: xx, x2: xx, y1: P.t - 4, y2: H - P.b, stroke: 'var(--accent2)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: .85 }, svg);
       var tx = sv('text', { x: xx + 3, y: P.t - 6, class: 'ev' }, svg); tx.textContent = m.label.length > 22 ? m.label.slice(0, 21) + '…' : m.label; });
     cfg.series.forEach(function (s) {
-      var d = '', pen = false, first = null, lastp = null; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + sy(p[1]).toFixed(1); pen = true; if (!first) first = p; lastp = p; });
-      if (s.fill && d) sv('path', { d: d + 'L' + sx(lastp[0]) + ' ' + sy(y0) + 'L' + sx(first[0]) + ' ' + sy(y0) + 'Z', fill: s.color, opacity: .1 }, svg);
-      if (s.dots) s.pts.forEach(function (p) { if (p[1] != null) sv('circle', { cx: sx(p[0]), cy: sy(p[1]), r: s.dotR || 1.7, fill: s.color, opacity: s.dotOp || .45 }, svg); });
+      var fy = s.axis2 ? sy2 : sy, fb = s.axis2 ? y20 : y0;
+      var d = '', pen = false, first = null, lastp = null; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + fy(p[1]).toFixed(1); pen = true; if (!first) first = p; lastp = p; });
+      if (s.fill && d) sv('path', { d: d + 'L' + sx(lastp[0]) + ' ' + fy(fb) + 'L' + sx(first[0]) + ' ' + fy(fb) + 'Z', fill: s.color, opacity: .1 }, svg);
+      if (s.dots) s.pts.forEach(function (p) { if (p[1] != null) sv('circle', { cx: sx(p[0]), cy: fy(p[1]), r: s.dotR || 1.7, fill: s.color, opacity: s.dotOp || .45 }, svg); });
       if (d && !s.noLine) sv('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: s.opacity || 1 }, svg); });
     if (cfg.readout) { var cross = sv('line', { y1: P.t, y2: H - P.b, stroke: 'var(--ink-3)', 'stroke-width': 1, opacity: 0 }, svg), mark = sv('circle', { r: 3.5, fill: cfg.series[cfg.series.length - 1].color, opacity: 0 }, svg);
       var base = (cfg.readSeries != null ? cfg.series[cfg.readSeries] : cfg.series[cfg.series.length - 1]).pts.filter(function (p) { return p[1] != null; });
@@ -491,23 +500,42 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var groups = {}; MET.forEach(function (x) { (groups[x.g] || (groups[x.g] = [])).push(x); });
     var sel = h('select', { 'aria-label': 'Metric' }); Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { var o = h('option', { value: x.k }, [x.l]); if (x.k === k) o.selected = true; og.appendChild(o); }); sel.appendChild(og); });
     sel.addEventListener('change', function () { S.trendKey = sel.value; renderTrends(); });
-    var top = h('div', { class: 'card ctl' }, [h('div', { style: 'flex:1;min-width:200px' }, [sel])]);
+    var csel = h('select', { 'aria-label': 'Compare with' }); csel.appendChild(h('option', { value: '' }, ['Compare with another measure (optional)']));
+    Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { if (x.k === k) return; var o = h('option', { value: x.k }, [x.l]); if (x.k === S.trendCmp) o.selected = true; og.appendChild(o); }); csel.appendChild(og); });
+    csel.addEventListener('change', function () { S.trendCmp = csel.value; renderTrends(); });
+    var top = h('div', { class: 'card ctl' }, [h('div', { style: 'flex:1;min-width:180px' }, [sel]), h('div', { style: 'flex:1;min-width:180px' }, [csel])]);
     [[30, '30D'], [90, '90D'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (S.range === a[0] ? ' on' : ''), onclick: function () { S.range = a[0]; renderTrends(); } }, [a[1]])); }); p.appendChild(top);
     var paint; p.appendChild(smoothCtl(function () { paint(); }));
     var cols = h('div', { class: 'cols side' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
-    var raw = inRange(series(k), S.range), cut = raw.length ? raw[0][0] : 0;
-    var bands = []; if (k === 'sleep_score' || k === 'recovery_index' || k === 'movement_index') bands = [{ from: SCORE_BANDS.optimal, to: 100, color: 'var(--opt)', op: .13 }, { from: SCORE_BANDS.good, to: SCORE_BANDS.optimal, color: 'var(--good)', op: .13 }, { from: 0, to: SCORE_BANDS.good, color: 'var(--bad)', op: .1 }];
-    var legendHtml = function () { return '<span><i style="background:var(--ink-3)"></i>Daily</span>' + (S.sm >= 1.5 ? '<span><i style="background:var(--teal)"></i>' + smoothName(S.sm) + '</span>' : '') + (S.showEvents && S.events.length ? '<span><i style="background:var(--accent2)"></i>Event</span>' : ''); };
-    var c = chartCard(m.l, legendHtml()); left.appendChild(c);
-    var fmtv = function (v) { return m.f === hm || m.f === clock ? m.f(v) : String(m.f === r0 ? r0(v) : r1(v)); };
-    paint = function () { var sm = smoothPts(series(k), S.sm), smr = sm.filter(function (q) { return q[0] >= cut; }), on = S.sm >= 1.5; c.legend.innerHTML = legendHtml();
-      lineChart(c.host, { h: 300, series: [{ pts: raw, color: 'var(--ink-3)', width: 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }], bands: bands, markers: evMarkers(), xFmt: fmtShort,
-        yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: function (v) { return m.f === hm ? Math.round(v / 60 * 10) / 10 + 'h' : m.f === clock ? clock(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); },
-        readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }); c.read.textContent = fmtShort(x) + '  ' + fmtv(y) + (on && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : ''); } }); };
+    var winCut = S.range ? dayNum(S.dates[S.dates.length - 1]) - S.range : -1e9, inWin = function (q) { return q[0] >= winCut; };
+    var raw = series(k).filter(inWin), k2 = S.trendCmp && MK[S.trendCmp] && S.trendCmp !== k ? S.trendCmp : '', m2 = k2 ? MK[k2] : null, raw2 = k2 ? series(k2).filter(inWin) : [];
+    var bands = []; if (!k2 && (k === 'sleep_score' || k === 'recovery_index' || k === 'movement_index')) bands = [{ from: SCORE_BANDS.optimal, to: 100, color: 'var(--opt)', op: .13 }, { from: SCORE_BANDS.good, to: SCORE_BANDS.optimal, color: 'var(--good)', op: .13 }, { from: 0, to: SCORE_BANDS.good, color: 'var(--bad)', op: .1 }];
+    var legendHtml = function () { var on = S.sm >= 1.5, ev = S.showEvents && S.events.length ? '<span><i style="background:var(--accent2);opacity:.6"></i>Event</span>' : '';
+      if (k2) return '<span><i style="background:var(--teal)"></i>' + esc(m.l) + ' (left axis)</span><span><i style="background:var(--accent2)"></i>' + esc(m2.l) + ' (right axis)</span>' + (on ? '<span>' + smoothName(S.sm) + '</span>' : '') + ev;
+      return '<span><i style="background:var(--ink-3)"></i>Daily</span>' + (on ? '<span><i style="background:var(--teal)"></i>' + smoothName(S.sm) + '</span>' : '') + ev; };
+    var c = chartCard(k2 ? m.l + ' and ' + m2.l : m.l, legendHtml()); left.appendChild(c);
+    var fmtOf = function (mm) { return function (v) { return mm.f === hm || mm.f === clock ? mm.f(v) : String(mm.f === r0 ? r0(v) : r1(v)); }; }, fmtv = fmtOf(m), fmtv2 = m2 ? fmtOf(m2) : null;
+    var axisFmt = function (mm) { return function (v) { return mm.f === hm ? Math.round(v / 60 * 10) / 10 + 'h' : mm.f === clock ? clock(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }; };
+    var map2 = {}; raw2.forEach(function (q) { map2[q[0]] = q[1]; });
+    paint = function () { var on = S.sm >= 1.5, sm = smoothPts(series(k), S.sm), smr = sm.filter(inWin), sm2 = k2 ? smoothPts(series(k2), S.sm) : [], sm2m = {}; sm2.forEach(function (q) { sm2m[q[0]] = q[1]; }); c.legend.innerHTML = legendHtml();
+      var ser = [{ pts: raw, color: k2 && !on ? 'var(--teal)' : 'var(--ink-3)', width: k2 && !on ? 1.7 : 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }];
+      if (k2) { ser.push({ pts: raw2, color: 'var(--accent2)', width: on ? 1 : 1.7, dots: on, noLine: on, opacity: .85, axis2: true, dotOp: .4 }); ser.push({ pts: on ? sm2.filter(inWin) : [], color: 'var(--accent2)', width: 2.6, axis2: true }); }
+      lineChart(c.host, { h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? axisFmt(m2) : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
+        yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: axisFmt(m),
+        readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }), t = fmtShort(x) + '  ' + fmtv(y) + (on && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : '');
+          if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); };
     paint();
-    var vals = raw.map(function (q) { return q[1]; });
-    if (vals.length) { var g = h('div', { class: 'stats' }); [['Average', avg(vals)], ['Best', m.better === -1 ? Math.min.apply(null, vals) : Math.max.apply(null, vals)], ['Lowest', m.better === -1 ? Math.max.apply(null, vals) : Math.min.apply(null, vals)], ['Latest', vals[vals.length - 1]], ['Days', vals.length], ['Std dev', sd(vals)]].forEach(function (a) {
-      g.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [a[0]]), h('div', { class: 'v' }, [a[1] == null ? '-' : a[0] === 'Days' ? String(a[1]) : a[0] === 'Std dev' ? r1(a[1]) : fmtv(a[1])])])); }); left.appendChild(g); }
+    function statsBlock(kk, pts, mm, fm, title) { var vals = pts.map(function (q) { return q[1]; }); if (!vals.length) return null; var g = h('div', { class: 'stats' });
+      [['Average', avg(vals)], ['Best', mm.better === -1 ? Math.min.apply(null, vals) : Math.max.apply(null, vals)], ['Lowest', mm.better === -1 ? Math.max.apply(null, vals) : Math.min.apply(null, vals)], ['Latest', vals[vals.length - 1]], ['Days', vals.length], ['Std dev', sd(vals)]].forEach(function (a) {
+        g.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [a[0]]), h('div', { class: 'v' }, [a[1] == null ? '-' : a[0] === 'Days' ? String(a[1]) : a[0] === 'Std dev' ? r1(a[1]) : fm(a[1])])])); });
+      return title ? h('div', {}, [h('div', { class: 'lbl', style: 'margin:2px 3px 6px' }, [title]), g]) : g; }
+    var sb1 = statsBlock(k, raw, m, fmtv, k2 ? m.l : null); if (sb1) left.appendChild(sb1);
+    if (k2) { var sb2 = statsBlock(k2, raw2, m2, fmtv2, m2.l); if (sb2) left.appendChild(sb2);
+      var xs = [], ys = []; Object.keys(map2).forEach(function (n) { var q = raw.find(function (z) { return z[0] === +n; }); if (q) { xs.push(q[1]); ys.push(map2[n]); } }); var rr = pearson(xs, ys), cardR = h('div', { class: 'card', style: 'margin-bottom:10px' });
+      cardR.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['How closely they move together in this range']));
+      cardR.appendChild(h('div', { style: 'font-size:13px;line-height:1.5' }, [rText(rr, xs.length)]));
+      cardR.appendChild(h('div', { class: 'sub', style: 'margin:6px 0 8px' }, ['Day-by-day values on the same day. Try different timing, such as one measure leading the other by a few days, in Compare.']));
+      var go = h('button', { class: 'pill ghost', type: 'button' }, ['Explore timing in Compare']); go.addEventListener('click', function () { S.cmp.x = k2; S.cmp.y = k; S.cmp.mode = 'daily'; S.cmp.lag = 1; selectTab('compare'); }); cardR.appendChild(go); left.appendChild(cardR); }
     // what's moving
     var mv = whatsMoving(), tc = h('div', { class: 'card' }, [h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['What\'s moving: last 30 days vs the 90 before']), h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['Ranked by size of change relative to normal day-to-day variation.'])]);
     var tb = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Metric']), h('th', { style: 'text-align:right' }, ['Now']), h('th', { style: 'text-align:right' }, ['Before']), h('th', {}, ['Change'])])]);
@@ -573,7 +601,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 
 
   // ================= Heatmap =================
-  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'mood', 'stress', 'energy'];
+  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'over_pint_7d', 'mood', 'stress', 'energy'];
   var BANDED = ['sleep_score', 'recovery_index', 'movement_index', 'total_sleep_min', 'time_in_bed_min', 'restorative_pct', 'efficiency', 'temp_dev_c'];
   // z is the distance from the measure's own average in standard deviations. better: 1 high is good, -1 high is bad, otherwise neutral.
   function heatFill(z, better) { var a = Math.min(1, 0.12 + Math.abs(z) / 2.2 * 0.88);
@@ -800,10 +828,11 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   // ================= Data + shell =================
   function loadAll() {
     return Promise.all([supa.from('health_uh_daily').select('*').order('date', { ascending: true }).range(0, 4999), supa.from('health_activities').select('*').order('start_time', { ascending: false }).range(0, 4999),
-      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999)]).then(function (rs) {
+      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999), supa.from('health_drinks').select('*').range(0, 4999)]).then(function (rs) {
       if (rs[0].error) throw rs[0].error; if (rs[1].error) throw rs[1].error;
       S.daily = rs[0].data || []; S.byDate = {}; S.daily.forEach(function (r) { S.byDate[r.date] = r; }); S.acts = rs[1].data || [];
       S.events = rs[2].error ? [] : (rs[2].data || []); S.checkins = {}; (rs[3].error ? [] : (rs[3].data || [])).forEach(function (c) { S.checkins[c.date] = c; });
+      S.drinks = {}; (rs[4].error ? [] : (rs[4].data || [])).forEach(function (c) { S.drinks[c.date] = c.over_pint; });
       buildTable(); var withSleep = S.daily.filter(function (r) { return r.sleep_score != null; }); S.date = (withSleep.length ? withSleep[withSleep.length - 1] : S.daily[S.daily.length - 1] || {}).date || todayLocal();
       renderAll(); });
   }
