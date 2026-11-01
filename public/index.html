@@ -325,6 +325,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     function covRun(d) { return (sMin && d >= sMin && d <= sMax) || (gMin && d >= gMin); }
     function covAll(d) { return sMin && d >= sMin && d <= sMax; }
     function covAny(d) { return covAll(d) || (gMin && d >= gMin); }
+    var firstAct = [sMin, gMin].filter(Boolean).sort()[0];
     var perDay = {}; S.actByDate = {};
     S.acts.forEach(function (a) { var d = localDate(a.start_time), o = perDay[d] || (perDay[d] = { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }), km = (a.distance_m || 0) / 1000, mn = (a.moving_time_s || 0) / 60;
       (S.actByDate[d] || (S.actByDate[d] = [])).push(a); o.n++; var k = sportKind(a); if (k === 'run') o.run_km += km; if (k === 'ride') o.ride_km += km; o.active_min += mn; o.climb_m += Number(a.elevation_gain_m || 0); });
@@ -333,7 +334,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       MET.forEach(function (m) { if (u[m.k] != null && !isNaN(Number(u[m.k]))) o[m.k] = Number(u[m.k]); });
       if (u.bedtime_start) { var p = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_start)), hh = +p.find(function (x) { return x.type === 'hour'; }).value % 24, mm = +p.find(function (x) { return x.type === 'minute'; }).value; o.bedtime = hh + mm / 60 + (hh < 14 ? 24 : 0); }
       if (u.bedtime_end) { var p2 = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_end)); o.wake = (+p2.find(function (x) { return x.type === 'hour'; }).value % 24) + (+p2.find(function (x) { return x.type === 'minute'; }).value) / 60; }
-      var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }; o.activity = covAny(d) ? (pd.n > 0 ? 1 : 0) : null;
+      var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }; o.activity = (firstAct && d >= firstAct) ? (pd.n > 0 ? 1 : 0) : null; // no recorded activity counts as a rest day
       if (covRun(d)) o.run_km = pd.run_km;
       if (covAll(d)) { o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; }
       if (S.drinks[d] != null) o.over_pint = S.drinks[d] ? 1 : 0;
