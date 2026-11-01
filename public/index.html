@@ -564,7 +564,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var mk = sv('circle', { r: 5, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg);
     var move = function (ev) { var r = svg.getBoundingClientRect(), qx = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * W, qy = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) / r.height * H, bi = -1, bd = 1e18;
       pr.xs.forEach(function (x, i) { var dd = Math.pow(sx(x) - qx, 2) + Math.pow(sy(pr.ys[i]) - qy, 2); if (dd < bd) { bd = dd; bi = i; } }); if (bi < 0) return;
-      mk.setAttribute('cx', sx(pr.xs[bi])); mk.setAttribute('cy', sy(pr.ys[bi])); mk.setAttribute('opacity', 1); onRead(pr.lab[bi] + '  ' + xf(pr.xs[bi]) + ' / ' + yf(pr.ys[bi])); };
+      mk.setAttribute('cx', sx(pr.xs[bi])); mk.setAttribute('cy', sy(pr.ys[bi])); mk.setAttribute('opacity', 1); onRead((pr.fmtLab ? pr.fmtLab(pr.lab[bi]) : pr.lab[bi]) + '  ' + xf(pr.xs[bi]) + ' / ' + yf(pr.ys[bi])); };
     svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); return rg;
   }
   function spark(vals, color) { var v = vals.filter(function (x) { return x != null; }); if (v.length < 3) return ''; var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), W = 64, H = 20, d = '';
@@ -723,7 +723,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   // Smoothed (or raw, when detail is at "points") values of every measure on the current detail setting, aligned to S.dates.
   function smCols(sm) { var key = Math.round(sm * 10) + '|' + S.dates.length + '|' + Object.keys(S.drinks).length + '|' + S.acts.length; if (S.smc && S.smc.key === key) return S.smc.cols;
     var cols = {}, d0 = dayNum(S.dates[0]), n = S.dates.length; MET.forEach(function (m) { var pts = series(m.k), sp = sm >= 1.5 ? smoothPts(pts, sm) : pts, arr = new Array(n); for (var i = 0; i < n; i++) arr[i] = null; sp.forEach(function (q) { if (q[1] != null) arr[q[0] - d0] = q[1]; }); cols[m.k] = arr; }); S.smc = { key: key, cols: cols }; return cols; }
-  function lagPair(xk, yk, L) { var c = smCols(S.sm), X = c[xk], Y = c[yk], xs = [], ys = []; for (var t = L; t < Y.length; t++) { var x = X[t - L], y = Y[t]; if (x != null && y != null) { xs.push(x); ys.push(y); } } return { xs: xs, ys: ys }; }
+  function lagPair(xk, yk, L) { var c = smCols(S.sm), X = c[xk], Y = c[yk], xs = [], ys = [], ds = []; for (var t = L; t < Y.length; t++) { var x = X[t - L], y = Y[t]; if (x != null && y != null) { xs.push(x); ys.push(y); ds.push(S.dates[t]); } } return { xs: xs, ys: ys, ds: ds }; }
   function colOf(k) { return S.dates.map(function (d) { var v = S.D[d][k]; return v == null || isNaN(v) ? null : v; }); }
   function corr3(a, b) { var n = a.length; if (n < 8) return null; var ma = 0, mb = 0, i; for (i = 0; i < n; i++) { ma += a[i]; mb += b[i]; } ma /= n; mb /= n; var sab = 0, saa = 0, sbb = 0; for (i = 0; i < n; i++) { var x = a[i] - ma, y = b[i] - mb; sab += x * y; saa += x * x; sbb += y * y; } return saa > 0 && sbb > 0 ? sab / Math.sqrt(saa * sbb) : null; }
   function causeLinks(mode) { var key = mode + '|' + Math.round(S.sm * 10) + '|' + S.dates.length + '|' + Object.keys(S.drinks).length + '|' + S.acts.length; S.clCache = S.clCache || {}; if (S.clCache[key]) return S.clCache[key];
@@ -753,12 +753,22 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var tog = h('button', { class: 'sbtog', type: 'button', title: 'Show or hide the day and gap controls', 'aria-label': 'Show or hide the day and gap controls', onclick: function () { S.barCollapsed = !S.barCollapsed; bar.classList.toggle('collapsed', S.barCollapsed); tog.textContent = S.barCollapsed ? '\u25BE' : '\u25B4'; } }, [S.barCollapsed ? '\u25BE' : '\u25B4']);
     bar.appendChild(h('div', { class: 'sbrow' }, [h('span', { class: 'sbtag' }, ['X']), h('div', { style: 'flex:1' }, [metricSelect(C.x, function (v) { C.x = v; renderCompare(); })]), h('span', { class: 'sbtag' }, ['\u2192 Y']), h('div', { style: 'flex:1' }, [metricSelect(C.y, function (v) { C.y = v; renderCompare(); })]), tog]));
     bar.appendChild(h('div', { class: 'sbrow sbmore' }, [h('span', { class: 'sbtag' }, ['Per']), h('div', { style: 'flex:0 0 100px' }, [md]), h('span', { class: 'sbtag' }, ['Y is']), h('div', { style: 'flex:1' }, [lg])]));
-    bar.appendChild(h('div', { class: 'sbrow' }, [smoothCtl(function () { paintT(); fillCL(); fillRK(); })])); p.appendChild(bar);
+    bar.appendChild(h('div', { class: 'sbrow' }, [smoothCtl(function () { paintT(); paintSc(); fillCL(); fillRK(); })])); p.appendChild(bar);
     p.appendChild(h('div', { class: 'sub', style: 'margin:0 3px 10px;line-height:1.45' }, ['X is the possible cause, Y is the outcome. ' + (C.lag === 0 ? 'Pairs ' + mx.l + ' with ' + my.l + ' from the same ' + unit + '.' : 'Pairs ' + mx.l + ' on one ' + unit + ' with ' + my.l + ' ' + C.lag + ' ' + unit + (C.lag > 1 ? 's' : '') + ' later, to test whether something today shows up in the outcome later, such as drinking tonight and HRV tomorrow.')]));
-    var cols = h('div', { class: 'cols c2' }); p.appendChild(cols); var pr = pairs(C.x, C.y, C.mode, C.lag), left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
-    var sc = chartCard(my.l + ' against ' + mx.l.toLowerCase()); left.appendChild(sc); var rg = scatter(sc.host, pr, mx.l + (mx.u ? ' (' + mx.u + ')' : ''), my.l + (my.u ? ' (' + my.u + ')' : ''), function (v) { return mx.f === hm || mx.f === clock ? mx.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (v) { return my.f === hm || my.f === clock ? my.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (t) { sc.read.textContent = t; });
-    var rr = pearson(pr.xs, pr.ys); left.appendChild(h('div', { class: 'card', style: 'margin-bottom:10px' }, [h('div', { style: 'font-size:13px;line-height:1.5' }, [rText(rr, pr.xs.length) + (rg && rr != null ? ' Slope: each +1 ' + (mx.u || 'unit') + ' in X goes with ' + (rg.b >= 0 ? '+' : '') + Number(rg.b.toFixed(3)) + ' ' + (my.u || 'units') + ' in Y.' : '')]),
-      h('div', { class: 'sub', style: 'margin-top:6px' }, ['Look for things that changed together: sleep timing, alcohol, training, stress and life events can all move HRV at once.'])]));
+    var cols = h('div', { class: 'cols c2' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
+    var sc = chartCard(my.l + ' against ' + mx.l.toLowerCase()); left.appendChild(sc); var scNote = h('div', { class: 'zhint' }); sc.appendChild(scNote);
+    var rcard = h('div', { class: 'card', style: 'margin-bottom:10px' }); left.appendChild(rcard);
+    var fmtAx = function (m_) { return function (v) { return m_.f === hm || m_.f === clock ? m_.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }; };
+    // the scatter follows the detail slider: each dot is a day on the smoothed lines (weekly mode stays as weekly averages)
+    function paintSc() { var smoothed = !wk && S.sm >= 1.5, pr;
+      if (wk) pr = pairs(C.x, C.y, 'weekly', C.lag); else { var q = lagPair(C.x, C.y, C.lag), d0 = dayNum(S.dates[0]); pr = { xs: q.xs, ys: q.ys, lab: q.ds, fmtLab: fmtDay }; }
+      var rg = scatter(sc.host, pr, mx.l + (mx.u ? ' (' + mx.u + ')' : ''), my.l + (my.u ? ' (' + my.u + ')' : ''), fmtAx(mx), fmtAx(my), function (t) { sc.read.textContent = t; });
+      var rr = pearson(pr.xs, pr.ys); rcard.innerHTML = '';
+      rcard.appendChild(h('div', { style: 'font-size:13px;line-height:1.5' }, [rText(rr, pr.xs.length) + (rg && rr != null ? ' Slope: each +1 ' + (mx.u || 'unit') + ' in X goes with ' + (rg.b >= 0 ? '+' : '') + Number(rg.b.toFixed(3)) + ' ' + (my.u || 'units') + ' in Y.' : '')]));
+      if (smoothed && S.sm > 20) rcard.appendChild(h('div', { class: 'sub', style: 'margin-top:6px;color:var(--bad)' }, ['At this much smoothing neighbouring days are nearly the same point, so the link looks stronger than it is. Move the detail slider toward points to judge it.']));
+      rcard.appendChild(h('div', { class: 'sub', style: 'margin-top:6px' }, ['Look for things that changed together: sleep timing, alcohol, training, stress and life events can all move HRV at once.']));
+      scNote.textContent = wk ? 'Each dot is one week (weekly averages).' : 'Each dot is one day' + (smoothed ? ', taken from lines smoothed to ' + smoothName(S.sm) + '.' : ' of raw values.'); }
+    paintSc();
     // timeline z-scores
     // timeline z-scores
     function z(pts) { var v = pts.map(function (q) { return q[1]; }).filter(function (x) { return x != null; }), m_ = avg(v), s_ = sd(v, m_) || 1; return pts.map(function (q) { return [q[0], q[1] == null ? null : (q[1] - m_) / s_]; }); }
