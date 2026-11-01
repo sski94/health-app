@@ -609,6 +609,39 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     function pinned(card, title, read) { var body = h('div', { style: 'display:flex;align-items:flex-start' }), lab = h('div', { style: 'flex:none' }), wrap = h('div', { class: 'hscroll', style: 'flex:1;min-width:0' });
       card.appendChild(h('div', { class: 'top' }, [h('span', { class: 'lbl' }, [title]), read])); body.appendChild(lab); body.appendChild(wrap); card.appendChild(body); return { lab: lab, wrap: wrap }; }
 
+    // --- four full calendars, always shown: sleep, recovery, movement, activity (one cell per day, one column per week)
+    var rangeDays = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; });
+    function calCard(key, title) {
+      var card = h('div', { class: 'card chartcard', style: 'margin-bottom:0' }), read = h('div', { class: 'read num' }), pn = pinned(card, title, read), foot = h('div', { class: 'swatches' }), isAct = key === 'activity';
+      card.appendChild(foot);
+      card.draw = function () {
+        var gp = 2, lw = 28, tp = 30; pn.lab.style.width = lw + 'px';
+        var avail = pn.wrap.clientWidth || 240, cs = Math.max(8, Math.min(16, Math.floor(avail / cols.length) - gp)), pitch = cs + gp, W = cols.length * pitch + 4, H = tp + 7 * pitch + 2;
+        var ls = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H, width: lw, height: H, class: 'hm' }); pn.lab.appendChild(ls); var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, class: 'hm' }); pn.wrap.appendChild(svg);
+        ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach(function (t, i) { if (!t) return; var tx = sv('text', { x: lw - 5, y: tp + i * pitch + cs - 2, 'text-anchor': 'end' }, ls); tx.textContent = t; });
+        var lm = '', lx = -99; cols.forEach(function (n, ci) { var tg = monthTag(n + 3), x = ci * pitch; if (tg !== lm && x - lx > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lx = x; } lm = tg; });
+        var vv = rangeDays.map(function (d) { return S.D[d][key]; }).filter(function (x) { return x != null; }), mu = avg(vv), sg = sd(vv, mu) || 1, cells = [], cnt = { opt: 0, good: 0, bad: 0, n: 0 }, act = { yes: 0, no: 0 };
+        cols.forEach(function (n, ci) { for (var i = 0; i < 7; i++) { var d = dayStr(n + i), D = S.D[d]; if (!D || n + i > lastDay) continue; var v = D[key], f, ex = null, inR = !HS.range || n + i >= lastDay - HS.range;
+          if (isAct) { if (v === 1) { f = ['var(--teal)', 1]; if (inR) act.yes++; } else if (v === 0) { f = ['var(--fill)', 1]; if (inR) act.no++; } else { f = ['none', 0]; ex = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+          else if (v == null) f = ['var(--fill)', 1]; else { var lv = scoreLevel(v); if (inR) { cnt[lv]++; cnt.n++; } f = useBandsMode ? [COLORS[lv], 1] : heatFill((v - mu) / sg, 1); }
+          var at = { x: ci * pitch + (ex ? .5 : 0), y: tp + i * pitch + (ex ? .5 : 0), width: cs - (ex ? 1 : 0), height: cs - (ex ? 1 : 0), rx: 3, fill: f[0], 'fill-opacity': f[1] }; if (ex) for (var k in ex) at[k] = ex[k]; sv('rect', at, svg); cells.push({ x: ci * pitch, y: tp + i * pitch, d: d, v: v }); } });
+        heatEventLines(svg, cols, 0, pitch, tp - 2, H - 2);
+        var hv = sv('rect', { width: cs, height: cs, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg);
+        function mv(ev) { var r = svg.getBoundingClientRect(), k = W / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, ci = Math.floor(x / pitch), ri = Math.floor((y - tp) / pitch);
+          var c = cells.find(function (q) { return q.x === ci * pitch && q.y === tp + ri * pitch; }); if (!c) { hv.setAttribute('opacity', 0); return; } hv.setAttribute('x', c.x); hv.setAttribute('y', c.y); hv.setAttribute('opacity', 1);
+          if (isAct) { var al = S.actByDate[c.d] || []; read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no activity source' : c.v ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity'); }
+          else { var lv = c.v == null ? 'none' : scoreLevel(c.v); read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no data' : c.v + '  ' + LABEL[lv]); } }
+        svg.addEventListener('pointermove', mv); svg.addEventListener('pointerdown', mv); setTimeout(function () { pn.wrap.scrollLeft = pn.wrap.scrollWidth; }, 0);
+        var pc = function (x) { return cnt.n ? Math.round(x / cnt.n * 100) + '%' : '-'; };
+        foot.innerHTML = isAct ? '<i style="background:var(--teal)"></i>Activity<i style="background:var(--fill)"></i>None<i style="background:none;border:1px dashed var(--c-grid)"></i>No source<span style="margin-left:8px">Active on ' + act.yes + ' of ' + (act.yes + act.no) + ' recorded days' + (act.yes + act.no ? ' (' + Math.round(act.yes / (act.yes + act.no) * 100) + '%)' : '') + '</span>'
+          : (useBandsMode ? '<i style="background:var(--opt)"></i>Optimal ' + pc(cnt.opt) + '<i style="background:var(--good)"></i>Good ' + pc(cnt.good) + '<i style="background:var(--bad)"></i>Needs attention ' + pc(cnt.bad) : RELSW + '<span style="margin-left:8px">Average ' + (mu == null ? '-' : Math.round(mu)) + '</span>');
+      };
+      return card;
+    }
+    var fw = h('div', { class: 'cols c2', style: 'margin-bottom:10px' }); p.appendChild(fw);
+    [['sleep_score', 'Sleep'], ['recovery_index', 'Recovery'], ['movement_index', 'Movement'], ['activity', 'Activity (any Strava or Garmin activity)']].forEach(function (a) { var c = calCard(a[0], a[1]); fw.appendChild(c); c.draw(); });
+    fw.appendChild(h('div', { class: 'note', style: 'grid-column:1/-1;margin-top:0' }, ['Each square is one day, each column one week, Monday at the top. Activity covers Strava to 24 May 2026 and Garmin runs from 10 Aug 2026; dashed squares have no activity source.']));
+
     // --- always-on strip: sleep, recovery, movement and whether there was an activity, day by day
     var sc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), sread = h('div', { class: 'read num' }), sp = pinned(sc, 'Sleep, recovery, movement and activity, day by day', sread); p.appendChild(sc);
     var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY']];
