@@ -107,6 +107,7 @@ svg.spark { width: 64px; height: 20px; flex: none; }
 .pop .pa .s { color: var(--ink-3); font-size: 11px; }
 .pop .pg { border: 0; background: none; color: var(--teal); cursor: pointer; padding: 3px 0 0; font: inherit; font-weight: 600; margin-right: 12px; }
 svg.ch.pick { cursor: pointer; }
+table.t tr.sel td { background: var(--bg); font-weight: 600; }
 .chartcard .top { display: flex; justify-content: space-between; align-items: baseline; margin: 0 3px 4px; gap: 8px; }
 .chartcard .read { font: 500 12px var(--font-num); min-height: 15px; text-align: right; }
 svg.ch { display: block; width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
@@ -380,10 +381,10 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       MET.forEach(function (m) { var vals = rows.map(function (r) { return r[m.k]; }); if (m.sum) { if (vals.every(function (v) { return v != null; }) && rows.length === 7) o[m.k] = vals.reduce(function (s, v) { return s + v; }, 0); }
         else { var ok = vals.filter(function (v) { return v != null; }); if (ok.length >= 4) o[m.k] = avg(ok); } });
       out[mon] = o; }); return out; }
-  function pairs(kx, ky, mode, lag) { var xs = [], ys = [], lab = [];
+  function pairs(kx, ky, mode, lag, noLab) { var xs = [], ys = [], lab = [];
     if (mode === 'weekly') { var W = weeklyTable(), keys = Object.keys(W).map(Number).sort(function (a, b) { return a - b; });
       keys.forEach(function (n) { var a = W[n], b = W[n + 7 * lag]; if (a && b && a[kx] != null && b[ky] != null) { xs.push(a[kx]); ys.push(b[ky]); lab.push('w/c ' + fmtShort(n)); } }); }
-    else S.dates.forEach(function (d) { var a = S.D[d], d2 = addDays(d, lag), b = S.D[d2]; if (b && a[kx] != null && b[ky] != null) { xs.push(a[kx]); ys.push(b[ky]); lab.push(fmtDay(d)); } });
+    else for (var i = 0; i + lag < S.dates.length; i++) { var a = S.D[S.dates[i]], b = S.D[S.dates[i + lag]]; if (b && a[kx] != null && b[ky] != null) { xs.push(a[kx]); ys.push(b[ky]); if (!noLab) lab.push(fmtDay(S.dates[i])); } }
     return { xs: xs, ys: ys, lab: lab }; }
   function rText(r, n) { if (r == null) return 'Not enough overlapping data.'; var a = Math.abs(r), s = a < .1 ? 'No clear' : a < .3 ? 'A weak' : a < .5 ? 'A moderate' : 'A strong'; return s + (r < 0 ? ' negative' : ' positive') + ' link (r = ' + r.toFixed(2) + ', ' + n + ' pairs). This shows the two move together, not that one causes the other.'; }
 
@@ -610,21 +611,47 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     // timeline z-scores
     // timeline z-scores
     function z(pts) { var v = pts.map(function (q) { return q[1]; }).filter(function (x) { return x != null; }), m_ = avg(v), s_ = sd(v, m_) || 1; return pts.map(function (q) { return [q[0], q[1] == null ? null : (q[1] - m_) / s_]; }); }
-    var tc = chartCard('Over time, in standard deviations from each one\'s own average', '<span><i style="background:var(--accent2)"></i>' + esc(mx.l) + '</span><span><i style="background:var(--teal)"></i>' + esc(my.l) + '</span><span><i style="background:var(--ink-3)"></i>Event</span>'); right.appendChild(tc);
+    C.extra = (C.extra || []).filter(function (k_) { return MK[k_] && k_ !== C.x && k_ !== C.y; });
+    var XTRA = ['#7a6fd0', '#c9a227', '#4f9d6a', '#c4567a', '#3f8fc4', '#9a7b5a'];
+    function tlKeys() { return [C.x, C.y].concat(C.extra); }
+    function tlColor(i_) { return i_ === 0 ? 'var(--accent2)' : i_ === 1 ? 'var(--teal)' : XTRA[(i_ - 2) % XTRA.length]; }
+    function tlLegend() { return tlKeys().map(function (k_, i_) { return '<span><i style="background:' + tlColor(i_) + '"></i>' + esc(MK[k_].l) + '</span>'; }).join('') + '<span><i style="background:var(--ink-3)"></i>Event</span>'; }
+    var tc = chartCard('Over time, in standard deviations from each one\'s own average', tlLegend()); right.appendChild(tc);
+    // extra measures: chips plus an add selector
+    var addBar = h('div', { class: 'chips', style: 'margin:0 3px 8px;align-items:center' });
+    C.extra.forEach(function (k_, i_) { addBar.appendChild(h('button', { class: 'chip on', type: 'button', title: 'Remove from the timeline', onclick: function () { C.extra = C.extra.filter(function (z_) { return z_ !== k_; }); renderCompare(); } }, [MK[k_].l + '  ×'])); });
+    var addSel = h('select', { 'aria-label': 'Add a measure to the timeline', style: 'max-width:100%' }); addSel.appendChild(h('option', { value: '' }, ['+ Add another measure to the timeline']));
+    var gs = {}; MET.forEach(function (x_) { if (tlKeys().indexOf(x_.k) < 0) (gs[x_.g] || (gs[x_.g] = [])).push(x_); }); Object.keys(gs).forEach(function (g_) { var og = h('optgroup', { label: g_ }); gs[g_].forEach(function (x_) { og.appendChild(h('option', { value: x_.k }, [x_.l])); }); addSel.appendChild(og); });
+    addSel.addEventListener('change', function () { if (addSel.value) { C.extra.push(addSel.value); renderCompare(); } }); addBar.appendChild(addSel);
+    tc.insertBefore(addBar, tc.host);
     paintT = function () {
-    var s1 = smoothPts(series(C.x), wk ? Math.max(S.sm, 7) : S.sm), s2 = smoothPts(series(C.y), wk ? Math.max(S.sm, 7) : S.sm), z1 = z(s1), z2 = z(s2), cut = Math.max(z1.length ? z1[0][0] : 0, z2.length ? z2[0][0] : 0);
-    lineChart(tc.host, { breakGap: 3, h: 280, series: [{ pts: z1.filter(function (q) { return q[0] >= cut; }), color: 'var(--accent2)', width: 2 }, { pts: z2.filter(function (q) { return q[0] >= cut; }), color: 'var(--teal)', width: 2.2 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
-      readout: function (x, y) { var a = z1.find(function (q) { return q[0] === x; }), b = z2.find(function (q) { return q[0] === x; }); tc.read.textContent = fmtShort(x) + '  X ' + (a && a[1] != null ? a[1].toFixed(1) : '-') + '   Y ' + (b && b[1] != null ? b[1].toFixed(1) : '-'); } });
+    var sw = wk ? Math.max(S.sm, 7) : S.sm, keys = tlKeys(), zs = keys.map(function (k_) { return z(smoothPts(series(k_), sw)); }), cut = Math.max.apply(null, zs.map(function (q) { return q.length ? q[0][0] : 0; }));
+    tc.legend.innerHTML = tlLegend();
+    lineChart(tc.host, { breakGap: 3, h: 280, series: zs.map(function (q, i_) { return { pts: q.filter(function (r_) { return r_[0] >= cut; }), color: tlColor(i_), width: i_ === 1 ? 2.2 : 2 }; }), markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
+      readSeries: 0, readout: function (x, y) { tc.read.textContent = fmtShort(x) + '  ' + zs.map(function (q, i_) { var a = q.find(function (r_) { return r_[0] === x; }); return (i_ === 0 ? 'X ' : i_ === 1 ? 'Y ' : 'M' + (i_ + 1) + ' ') + (a && a[1] != null ? a[1].toFixed(1) : '-'); }).join('   '); } });
     };
     paintT();
-    // drivers
-    var dc = h('div', { class: 'card', style: 'margin-bottom:10px' }, [h('div', { class: 'lbl', style: 'margin-bottom:2px' }, ['What goes with ' + my.l.toLowerCase()]), h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['Day by day, X on the same day or the day before. Tap a row to explore it.'])]);
-    var dr = []; MET.forEach(function (x) { if (x.k === C.y) return; [0, 1].forEach(function (lag) { var q = pairs(x.k, C.y, 'daily', lag); if (q.xs.length < 60) return; var r_ = pearson(q.xs, q.ys); if (r_ != null) dr.push({ k: x.k, lag: lag, r: r_, n: q.xs.length }); }); });
-    dr = dr.filter(function (x) { return !(MK[x.k].g === 'Heart' && MK[C.y].g === 'Heart' && Math.abs(x.r) > .97); }).sort(function (a, b) { return Math.abs(b.r) - Math.abs(a.r); }).slice(0, 10);
-    var dt = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Measure']), h('th', {}, ['Timing']), h('th', {}, ['Link']), h('th', { style: 'text-align:right' }, ['r'])])]);
-    dr.forEach(function (x) { var wdt = Math.abs(x.r) * 50; dt.appendChild(h('tr', { class: 'click', onclick: function () { C.x = x.k; C.lag = x.lag; C.mode = 'daily'; renderCompare(); } }, [h('td', {}, [MK[x.k].l]), h('td', {}, [x.lag ? 'day before' : 'same day']),
-      h('td', {}, [h('div', { class: 'bar', html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' })]), h('td', { class: 'n' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2)])])); });
-    dc.appendChild(dr.length ? dt : h('div', { class: 'empty' }, ['Not enough overlapping data'])); right.appendChild(dc);
+    // ranked correlations against the outcome (Y): click a row to put that measure on X
+    var dc = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(dc);
+    dc.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:2px' }, ['Everything ranked against ' + my.l.toLowerCase()]));
+    dc.appendChild(h('div', { class: 'sub', style: 'margin-bottom:8px' }, ['Day by day. Each row shows how closely a measure moves with this outcome. Click a row to put it on the graph above.']));
+    var rkS = h('select', {}); [['strength', 'Strongest link first'], ['pos', 'Highest positive first'], ['neg', 'Most negative first']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if ((C.rank || 'strength') === a[0]) o.selected = true; rkS.appendChild(o); });
+    rkS.addEventListener('change', function () { C.rank = rkS.value; renderCompare(); });
+    var rkL = h('select', {}); [['best', 'Best timing, same day to a week before'], ['0', 'Same day only'], ['1', 'Day before only']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if ((C.rankLag || 'best') === a[0]) o.selected = true; rkL.appendChild(o); });
+    rkL.addEventListener('change', function () { C.rankLag = rkL.value; renderCompare(); });
+    dc.appendChild(h('div', { class: 'formrow', style: 'margin-bottom:8px' }, [rkS, rkL]));
+    var fam = function (k) { return k.replace(/_(7d|28d)$/, '').replace(/^days_/, ''); }, lags = (C.rankLag || 'best') === 'best' ? [0, 1, 2, 3, 5, 7] : [+C.rankLag], dr = [];
+    MET.forEach(function (x) { if (x.k === C.y || fam(x.k) === fam(C.y)) return; var best = null;
+      lags.forEach(function (lag) { var q = pairs(x.k, C.y, 'daily', lag, true); if (q.xs.length < 60) return; var r_ = pearson(q.xs, q.ys); if (r_ == null) return; var sc_ = (C.rank || 'strength') === 'pos' ? r_ : (C.rank === 'neg' ? -r_ : Math.abs(r_)); if (!best || sc_ > best.sc) best = { k: x.k, lag: lag, r: r_, n: q.xs.length, sc: sc_ }; });
+      if (best) dr.push(best); });
+    dr = dr.filter(function (x) { return !(MK[x.k].g === 'Heart' && MK[C.y].g === 'Heart' && Math.abs(x.r) > .97); }).sort(function (a, b) { return b.sc - a.sc; });
+    var strength = function (r_) { var a = Math.abs(r_); return a >= .5 ? 'strong' : a >= .3 ? 'moderate' : a >= .15 ? 'weak' : 'little or none'; };
+    var dt = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['#']), h('th', {}, ['Measure']), h('th', {}, ['Timing']), h('th', {}, ['Link']), h('th', { style: 'text-align:right' }, ['r']), h('th', { style: 'text-align:right' }, ['Days']), h('th', {}, [''])])]);
+    dr.forEach(function (x, ix) { var wdt = Math.abs(x.r) * 50, on = x.k === C.x && x.lag === C.lag && C.mode === 'daily';
+      dt.appendChild(h('tr', { class: 'click' + (on ? ' sel' : ''), onclick: function () { C.x = x.k; C.lag = x.lag; C.mode = 'daily'; renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [h('td', { class: 'n' }, [String(ix + 1)]), h('td', {}, [MK[x.k].l]), h('td', {}, [x.lag ? x.lag + (x.lag > 1 ? ' days' : ' day') + ' before' : 'same day']),
+        h('td', {}, [h('div', { class: 'bar', title: strength(x.r), html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' })]), h('td', { class: 'n' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2) + ' ' + strength(x.r).split(' ')[0]]), h('td', { class: 'n' }, [String(x.n)]), h('td', {}, [h('button', { class: 'chip', type: 'button', title: 'Add to the timeline above', onclick: function (ev) { ev.stopPropagation(); if (C.extra.indexOf(x.k) < 0 && x.k !== C.x && x.k !== C.y) C.extra.push(x.k); renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, ['+ timeline'])])])); });
+    dc.appendChild(dr.length ? h('div', { style: 'max-height:440px;overflow:auto' }, [dt]) : h('div', { class: 'empty' }, ['Not enough overlapping data']));
+    dc.appendChild(h('div', { class: 'sub', style: 'margin-top:6px' }, ['r runs from -1 to +1. Testing many measures at once means some strong-looking links will be chance, especially with few days, so treat the top of the list as leads to check, not conclusions.']));
     // around an event
     var ec = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(ec);
     ec.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['What changed around an event?']));
