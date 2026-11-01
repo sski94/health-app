@@ -99,6 +99,9 @@ svg.spark { width: 64px; height: 20px; flex: none; }
 /* charts and controls */
 .chartcard { padding: 11px 11px 6px; margin-bottom: 10px; min-width: 0; position: relative; }
 .pop { position: absolute; z-index: 5; width: 262px; max-width: calc(100% - 16px); background: var(--surface); border: 1px solid var(--hair); border-radius: 12px; padding: 10px 11px; box-shadow: 0 6px 22px rgba(0,0,0,.14); font-size: 12px; line-height: 1.4; }
+.pop { pointer-events: none; }
+.pop.flow { position: static; width: auto; max-width: none; margin: 4px 3px 6px; box-shadow: none; pointer-events: auto; background: var(--bg); }
+.pop button { pointer-events: auto; }
 .pop .ph { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; }
 .pop .px { border: 0; background: none; font-size: 16px; line-height: 1; cursor: pointer; color: var(--ink-3); padding: 0 2px; }
 .pop .pr { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
@@ -109,6 +112,12 @@ svg.spark { width: 64px; height: 20px; flex: none; }
 .pop .pa .s { color: var(--ink-3); font-size: 11px; }
 .pop .pg { border: 0; background: none; color: var(--teal); cursor: pointer; padding: 3px 0 0; font: inherit; font-weight: 600; margin-right: 12px; }
 svg.ch.pick { cursor: pointer; }
+.zhost { position: relative; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+.zhost svg.ch, .zhost svg.ch * { pointer-events: none; }
+.zbtns { position: absolute; right: 4px; top: 0; display: flex; gap: 4px; z-index: 3; }
+.zbtn { pointer-events: auto; min-width: 26px; height: 24px; padding: 0 7px; border-radius: 999px; border: 1px solid var(--hair); background: var(--surface); color: var(--ink-soft); font: 600 13px var(--font-num); line-height: 1; cursor: pointer; opacity: .9; }
+.zbtn.reset { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.zhint { font: 500 10px var(--font-num); color: var(--ink-3); margin: 0 3px 5px; }
 table.t tr.sel td { background: var(--bg); font-weight: 600; }
 .chartcard .top { display: flex; justify-content: space-between; align-items: baseline; margin: 0 3px 4px; gap: 8px; }
 .chartcard .read { font: 500 12px var(--font-num); min-height: 15px; text-align: right; }
@@ -408,11 +417,16 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var all = [], prim = [], sec = []; cfg.series.forEach(function (s) { s.pts.forEach(function (p) { if (p[1] != null) { all.push(p); (s.axis2 ? sec : prim).push(p); } }); }); host.innerHTML = '';
     if (!all.length) { host.innerHTML = '<div class="empty">No data in this range</div>'; return; }
     var x0 = cfg.xMin != null ? cfg.xMin : Math.min.apply(null, all.map(function (p) { return p[0]; })), x1 = cfg.xMax != null ? cfg.xMax : Math.max.apply(null, all.map(function (p) { return p[0]; }));
-    var ys = (prim.length ? prim : all).map(function (p) { return p[1]; }), y0 = cfg.yMin != null ? cfg.yMin : Math.min.apply(null, ys), y1 = cfg.yMax != null ? cfg.yMax : Math.max.apply(null, ys);
+    var fx0 = x0, fx1 = x1, zv = cfg.zoomKey ? ZOOM[cfg.zoomKey] : null;
+    if (zv) { var a_ = Math.max(fx0, zv.x0), b_ = Math.min(fx1, zv.x1); if (b_ - a_ >= 1 && b_ - a_ < fx1 - fx0 - 1e-6) { x0 = a_; x1 = b_; } else { zv = null; ZOOM[cfg.zoomKey] = null; } }
+    var inV = function (p) { return p[0] >= x0 - 1e-6 && p[0] <= x1 + 1e-6; }, pv = zv ? prim.filter(inV) : prim;
+    var ys = (pv.length ? pv : prim.length ? prim : all).map(function (p) { return p[1]; }), y0 = cfg.yMin != null ? cfg.yMin : Math.min.apply(null, ys), y1 = cfg.yMax != null ? cfg.yMax : Math.max.apply(null, ys);
     if (y0 === y1) { y0 -= 1; y1 += 1; } var pad = (y1 - y0) * 0.08; if (cfg.yMin == null) y0 -= pad; if (cfg.yMax == null) y1 += pad;
-    var y20 = 0, y21 = 1; if (hasR) { var ys2 = sec.map(function (p) { return p[1]; }); y20 = Math.min.apply(null, ys2); y21 = Math.max.apply(null, ys2); if (y20 === y21) { y20 -= 1; y21 += 1; } var pd2 = (y21 - y20) * 0.08; y20 -= pd2; y21 += pd2; }
+    var y20 = 0, y21 = 1; if (hasR) { var sv2 = zv ? sec.filter(inV) : sec, ys2 = (sv2.length ? sv2 : sec).map(function (p) { return p[1]; }); y20 = Math.min.apply(null, ys2); y21 = Math.max.apply(null, ys2); if (y20 === y21) { y20 -= 1; y21 += 1; } var pd2 = (y21 - y20) * 0.08; y20 -= pd2; y21 += pd2; }
     var sx = function (x) { return P.l + (x - x0) / ((x1 - x0) || 1) * (W - P.l - P.r); }, sy = function (y) { return H - P.b - (y - y0) / ((y1 - y0) || 1) * (H - P.t - P.b); }, sy2 = function (y) { return H - P.b - (y - y20) / ((y21 - y20) || 1) * (H - P.t - P.b); };
     var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'ch', role: 'img' }); host.appendChild(svg);
+    var cid = 'zc' + (++ZSEQ); sv('rect', { x: P.l, y: 0, width: Math.max(1, W - P.l - P.r), height: H }, sv('clipPath', { id: cid }, sv('defs', {}, svg)));
+    var gS = sv('g', { 'clip-path': 'url(#' + cid + ')' }, svg);
     (cfg.bands || []).forEach(function (b) { var ya = sy(Math.min(b.to, y1)), yb = sy(Math.max(b.from, y0)); if (yb > ya) sv('rect', { x: P.l, y: ya, width: W - P.l - P.r, height: yb - ya, fill: b.color, opacity: b.op || .12 }, svg); });
     niceTicks(y0, y1, Math.max(3, Math.round((H - P.t - P.b) / 42))).forEach(function (t) { sv('line', { x1: P.l, x2: W - P.r, y1: sy(t), y2: sy(t), stroke: 'var(--c-grid)', 'stroke-width': 1 }, svg);
       var tx = sv('text', { x: P.l - 5, y: sy(t) + 3, 'text-anchor': 'end' }, svg); tx.textContent = cfg.yFmt ? cfg.yFmt(t) : t; });
@@ -433,18 +447,80 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     cfg.series.forEach(function (s) {
       var fy = s.axis2 ? sy2 : sy, fb = s.axis2 ? y20 : y0;
       var d = '', pen = false, first = null, lastp = null, prevx = null; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } if (cfg.breakGap && prevx != null && p[0] - prevx > cfg.breakGap) pen = false; prevx = p[0]; d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + fy(p[1]).toFixed(1); pen = true; if (!first) first = p; lastp = p; });
-      if (s.fill && d) sv('path', { d: d + 'L' + sx(lastp[0]) + ' ' + fy(fb) + 'L' + sx(first[0]) + ' ' + fy(fb) + 'Z', fill: s.color, opacity: .1 }, svg);
-      if (s.dots) s.pts.forEach(function (p) { if (p[1] != null) sv('circle', { cx: sx(p[0]), cy: fy(p[1]), r: s.dotR || 1.7, fill: s.color, opacity: s.dotOp || .45 }, svg); });
-      if (d && !s.noLine) sv('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: s.opacity || 1 }, svg); });
+      if (s.fill && d) sv('path', { d: d + 'L' + sx(lastp[0]) + ' ' + fy(fb) + 'L' + sx(first[0]) + ' ' + fy(fb) + 'Z', fill: s.color, opacity: .1 }, gS);
+      if (s.dots) s.pts.forEach(function (p) { if (p[1] != null && (!zv || inV(p))) sv('circle', { cx: sx(p[0]), cy: fy(p[1]), r: s.dotR || 1.7, fill: s.color, opacity: s.dotOp || .45 }, gS); });
+      if (d && !s.noLine) sv('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: s.opacity || 1 }, gS); });
     if (cfg.readout) { var cross = sv('line', { y1: P.t, y2: H - P.b, stroke: 'var(--ink-3)', 'stroke-width': 1, opacity: 0 }, svg), mark = sv('circle', { r: 3.5, fill: cfg.series[cfg.series.length - 1].color, opacity: 0 }, svg);
-      var base = (cfg.readSeries != null ? cfg.series[cfg.readSeries] : cfg.series[cfg.series.length - 1]).pts.filter(function (p) { return p[1] != null; });
+      var base = (cfg.readSeries != null ? cfg.series[cfg.readSeries] : cfg.series[cfg.series.length - 1]).pts.filter(function (p) { return p[1] != null && (!zv || inV(p)); });
       var move = function (ev) { var r = svg.getBoundingClientRect(), px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * W, best = null, bd = 1e18;
         base.forEach(function (p) { var dd = Math.abs(sx(p[0]) - px); if (dd < bd) { bd = dd; best = p; } }); if (!best) return;
         cross.setAttribute('x1', sx(best[0])); cross.setAttribute('x2', sx(best[0])); cross.setAttribute('opacity', 1); mark.setAttribute('cx', sx(best[0])); mark.setAttribute('cy', sy(best[1])); mark.setAttribute('opacity', 1); cfg.readout(best[0], best[1]); };
-      svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); }
-    if (cfg.onPick) { svg.classList.add('pick'); svg.addEventListener('click', function (ev) { var r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W; if (px < P.l || px > W - P.r) return;
-      cfg.onPick(Math.round(x0 + (px - P.l) / ((W - P.l - P.r) || 1) * (x1 - x0))); }); }
-    return { sx: sx, W: W, P: P };
+      var ptrMove = move; }
+    var ptrPick = null; if (cfg.onPick) { svg.classList.add('pick'); ptrPick = function (clientX) { var r = svg.getBoundingClientRect(), px = (clientX - r.left) / r.width * W; if (px < P.l || px > W - P.r) return;
+      cfg.onPick(Math.round(x0 + (px - P.l) / ((W - P.l - P.r) || 1) * (x1 - x0))); }; }
+    if (cfg.zoomKey) {
+      host.classList.add('zhost'); host.__lc = { cfg: cfg, x0: x0, x1: x1, fx0: fx0, fx1: fx1, P: P, W: W, zoomed: !!zv }; host.__ptr = { move: typeof ptrMove === 'function' ? ptrMove : null, pick: ptrPick };
+      var bt = h('div', { class: 'zbtns' }); [['+', 'Zoom in', 1 / 1.6], ['\u2212', 'Zoom out', 1.6]].forEach(function (a) { var b = h('button', { class: 'zbtn', type: 'button', title: a[1], 'aria-label': a[1] }, [a[0]]); b.addEventListener('click', function (e) { e.stopPropagation(); host.__zoom.by(a[2]); }); bt.appendChild(b); });
+      if (zv) { var rb = h('button', { class: 'zbtn reset', type: 'button' }, ['Reset']); rb.addEventListener('click', function (e) { e.stopPropagation(); host.__zoom.reset(); }); bt.appendChild(rb); }
+      host.appendChild(bt); if (!host.__zb) bindZoom(host);
+    } else { if (typeof ptrMove === 'function') { svg.addEventListener('pointermove', ptrMove); svg.addEventListener('pointerdown', ptrMove); } if (ptrPick) svg.addEventListener('click', function (ev) { ptrPick(ev.clientX); }); }
+    var geo = { sx: sx, W: W, P: P, x0: x0, x1: x1 }; if (cfg.onDraw) cfg.onDraw(geo);
+    return geo;
+  }
+  // ---- zoom and pan, shared by every chart that has a zoomKey (behaves like the budget app's charts) ----
+  // Pinch zooms around your fingers, one finger pans when zoomed (with inertia) or scrubs the readout when not,
+  // a tap picks a day, double-tap resets. Desktop: Ctrl or pinch on the trackpad zooms at the cursor, drag pans
+  // when zoomed, horizontal scroll pans, double-click resets, and the + / - buttons work with a mouse alone.
+  var ZOOM = {}, ZSEQ = 0;
+  function bindZoom(host) {
+    host.__zb = 1; var G = function () { return host.__lc; }, inertia = null, gest = { mode: null }, mouse = null, lastTouch = 0, lastTap = null;
+    var plotW = function () { var g = G(); return Math.max(40, g.W - g.P.l - g.P.r); };
+    var pxToX = function (px) { var g = G(); return g.x0 + (px - g.P.l) / plotW() * (g.x1 - g.x0); };
+    function fit(a, span) { var g = G(), full = g.fx1 - g.fx0; span = Math.max(Math.min(full, g.cfg.minSpan || 7), Math.min(full, span)); if (a < g.fx0) a = g.fx0; if (a + span > g.fx1) a = g.fx1 - span; return { x0: a, x1: a + span }; }
+    function setView(v) { var g = G(); ZOOM[g.cfg.zoomKey] = (v.x1 - v.x0 >= g.fx1 - g.fx0 - 1e-6) ? null : v; lineChart(host, g.cfg); }
+    function reset() { inertia = null; ZOOM[G().cfg.zoomKey] = null; lineChart(host, G().cfg); }
+    function by(f) { var g = G(), span = (g.x1 - g.x0) * f, c = (g.x0 + g.x1) / 2; setView(fit(c - span / 2, span)); }
+    host.__zoom = { by: by, reset: reset };
+    var rectX = function (cx) { return cx - host.getBoundingClientRect().left; };
+    function tap(cx) { var q = host.__ptr; if (q && q.move) q.move({ clientX: cx }); if (q && q.pick) q.pick(cx); }
+    function runInertia(v) { var t0 = performance.now(); inertia = { v: v }; (function step(now) { if (!inertia) return; var dt = Math.min(40, now - t0); t0 = now; var g = G(), span = g.x1 - g.x0, nv = fit(g.x0 - inertia.v * dt / plotW() * span, span);
+      var hitEdge = Math.abs(nv.x0 - (g.x0 - inertia.v * dt / plotW() * span)) > 1e-6; setView(nv); inertia.v *= Math.pow(0.93, dt / 16); if (Math.abs(inertia.v) < 0.03 || hitEdge) { inertia = null; return; } requestAnimationFrame(step); })(t0); requestAnimationFrame(function () {}); }
+    var d2 = function (a, b) { return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY); };
+    host.addEventListener('touchstart', function (e) {
+      if (e.target && e.target.closest && e.target.closest('.zbtns')) { gest = { mode: null }; return; }
+      lastTouch = Date.now(); inertia = null; var g = G();
+      if (e.touches.length >= 2) { var t0 = e.touches[0], t1 = e.touches[1], mid = rectX((t0.clientX + t1.clientX) / 2); gest = { mode: 'pinch', dist: Math.max(12, d2(t0, t1)), span: g.x1 - g.x0, anchor: pxToX(mid) }; return; }
+      var t = e.touches[0]; gest = { mode: 'maybe', sx: t.clientX, sy: t.clientY, x0: g.x0, span: g.x1 - g.x0, samples: [{ t: Date.now(), x: t.clientX }] };
+    }, { passive: true });
+    host.addEventListener('touchmove', function (e) {
+      lastTouch = Date.now(); var g = G();
+      if (gest.mode === 'pinch' && e.touches.length >= 2) { e.preventDefault(); var t0 = e.touches[0], t1 = e.touches[1], full = g.fx1 - g.fx0, ns = Math.max(Math.min(full, g.cfg.minSpan || 7), Math.min(full, gest.span / (d2(t0, t1) / gest.dist))), mid = rectX((t0.clientX + t1.clientX) / 2);
+        setView(fit(gest.anchor - (mid - g.P.l) / plotW() * ns, ns)); return; }
+      if (!e.touches.length) return; var t = e.touches[0];
+      if (gest.mode === 'maybe') { var dx = t.clientX - gest.sx, dy = t.clientY - gest.sy; if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return; if (Math.abs(dx) > Math.abs(dy)) gest.mode = g.zoomed ? 'pan' : 'scrub'; else { gest.mode = 'scroll'; return; } }
+      if (gest.mode === 'pan') { e.preventDefault(); setView(fit(gest.x0 - (t.clientX - gest.sx) / plotW() * gest.span, gest.span)); var nowT = Date.now(); gest.samples.push({ t: nowT, x: t.clientX }); while (gest.samples.length > 2 && nowT - gest.samples[0].t > 110) gest.samples.shift(); }
+      else if (gest.mode === 'scrub') { e.preventDefault(); var q = host.__ptr; if (q && q.move) q.move({ clientX: t.clientX }); }
+    }, { passive: false });
+    function endTouch(e) {
+      lastTouch = Date.now();
+      if (gest.mode === 'pinch') { if (e.touches && e.touches.length === 1) { var t = e.touches[0], g = G(); gest = { mode: 'maybe', sx: t.clientX, sy: t.clientY, x0: g.x0, span: g.x1 - g.x0, samples: [{ t: Date.now(), x: t.clientX }], afterPinch: true }; } else gest = { mode: null }; return; }
+      if (e.touches && e.touches.length) return; var gg = gest; gest = { mode: null };
+      if (gg.mode === 'pan' && gg.samples && gg.samples.length >= 2) { var a = gg.samples[0], b = gg.samples[gg.samples.length - 1], v = (b.x - a.x) / Math.max(1, b.t - a.t); if (Math.abs(v) > 0.12 && Date.now() - b.t < 80) runInertia(v); }
+      else if (gg.mode === 'maybe' && !gg.afterPinch) { var ct = e.changedTouches && e.changedTouches[0]; if (!ct) return; if (e.target && e.target.closest && e.target.closest('.zbtns')) return; if (e.cancelable) e.preventDefault(); var now = Date.now();
+        if (lastTap && now - lastTap.t < 320 && Math.abs(ct.clientX - lastTap.x) < 32 && Math.abs(ct.clientY - lastTap.y) < 32) { lastTap = null; reset(); return; }
+        lastTap = { t: now, x: ct.clientX, y: ct.clientY }; tap(ct.clientX); }
+      else if (gg.mode === 'scrub') { /* readout stays on the last scrubbed day */ }
+    }
+    host.addEventListener('touchend', endTouch, { passive: false }); host.addEventListener('touchcancel', function () { gest = { mode: null }; }, { passive: true });
+    // mouse
+    host.addEventListener('mousedown', function (e) { if (Date.now() - lastTouch < 700 || e.button !== 0) return; if (e.target.closest && e.target.closest('.zbtns')) return; var g = G(); mouse = { sx: e.clientX, x0: g.x0, span: g.x1 - g.x0, moved: false }; inertia = null; window.addEventListener('mousemove', onMM); window.addEventListener('mouseup', onMU); });
+    function onMM(e) { if (!mouse) return; if (Math.abs(e.clientX - mouse.sx) > 3) mouse.moved = true; if (mouse.moved && G().zoomed) setView(fit(mouse.x0 - (e.clientX - mouse.sx) / plotW() * mouse.span, mouse.span)); }
+    function onMU(e) { window.removeEventListener('mousemove', onMM); window.removeEventListener('mouseup', onMU); if (!mouse) return; var m = mouse; mouse = null; if (!m.moved) tap(e.clientX); }
+    host.addEventListener('mousemove', function (e) { if (mouse || Date.now() - lastTouch < 700) return; var q = host.__ptr; if (q && q.move) q.move({ clientX: e.clientX }); });
+    host.addEventListener('dblclick', function () { if (Date.now() - lastTouch < 700) return; reset(); });
+    host.addEventListener('wheel', function (e) { var pinch = e.ctrlKey || e.metaKey, g = G(); if (!pinch && !(g.zoomed && Math.abs(e.deltaX) > Math.abs(e.deltaY))) return; e.preventDefault(); var span = g.x1 - g.x0;
+      if (pinch) { var px = rectX(e.clientX), ns = span * Math.exp(e.deltaY * 0.01), anchor = pxToX(px); var full = g.fx1 - g.fx0; ns = Math.max(Math.min(full, g.cfg.minSpan || 7), Math.min(full, ns)); setView(fit(anchor - (px - g.P.l) / plotW() * ns, ns)); }
+      else setView(fit(g.x0 + e.deltaX / plotW() * span, span)); }, { passive: false });
   }
   function scatter(host, pr, xl, yl, xf, yf, onRead) {
     var W = host.clientWidth || 340, H = fitH(280), P = { l: 44, r: 10, t: 10, b: 30 }; host.innerHTML = '';
@@ -545,7 +621,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { if (x.k === k) return; var o = h('option', { value: x.k }, [x.l]); if (x.k === S.trendCmp) o.selected = true; og.appendChild(o); }); csel.appendChild(og); });
     csel.addEventListener('change', function () { S.trendCmp = csel.value; S.pickDay = null; renderTrends(); });
     var top = h('div', { class: 'card ctl' }, [h('div', { style: 'flex:1;min-width:180px' }, [sel]), h('div', { style: 'flex:1;min-width:180px' }, [csel])]);
-    [[30, '30D'], [90, '90D'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (S.range === a[0] ? ' on' : ''), onclick: function () { S.range = a[0]; renderTrends(); } }, [a[1]])); }); p.appendChild(top);
+    [[30, '30D'], [90, '90D'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (S.range === a[0] ? ' on' : ''), onclick: function () { ZOOM.trend = null; S.range = a[0]; renderTrends(); } }, [a[1]])); }); p.appendChild(top);
     var paint; p.appendChild(smoothCtl(function () { paint(); }));
     var cols = h('div', { class: 'cols side' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
     var winCut = S.range ? dayNum(S.dates[S.dates.length - 1]) - S.range : -1e9, inWin = function (q) { return q[0] >= winCut; };
@@ -554,20 +630,20 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var legendHtml = function () { var on = S.sm >= 1.5, ev = S.showEvents && S.events.length ? '<span><i style="background:var(--accent2);opacity:.6"></i>Event</span>' : '';
       if (k2) return '<span><i style="background:var(--teal)"></i>' + esc(m.l) + ' (left axis)</span><span><i style="background:var(--accent2)"></i>' + esc(m2.l) + ' (right axis)</span>' + (on ? '<span>' + smoothName(S.sm) + '</span>' : '') + ev;
       return '<span><i style="background:var(--ink-3)"></i>Daily</span>' + (on ? '<span><i style="background:var(--teal)"></i>' + smoothName(S.sm) + '</span>' : '') + ev; };
-    var c = chartCard(k2 ? m.l + ' and ' + m2.l : m.l, legendHtml()); left.appendChild(c);
+    var c = chartCard(k2 ? m.l + ' and ' + m2.l : m.l, legendHtml()); left.appendChild(c); c.appendChild(h('div', { class: 'zhint' }, ['Pinch or Ctrl-scroll to zoom, drag to pan, tap a day for details, double-tap to reset.']));
     var fmtOf = function (mm) { return function (v) { return mm.f === hm || mm.f === clock ? mm.f(v) : String(mm.f === r0 ? r0(v) : r1(v)); }; }, fmtv = fmtOf(m), fmtv2 = m2 ? fmtOf(m2) : null;
     var axisFmt = function (mm) { return function (v) { return mm.f === hm ? Math.round(v / 60 * 10) / 10 + 'h' : mm.f === clock ? clock(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }; };
     var map2 = {}; raw2.forEach(function (q) { map2[q[0]] = q[1]; });
     paint = function () { var on = S.sm >= 1.5, sm = smoothPts(series(k), S.sm), smr = sm.filter(inWin), sm2 = k2 ? smoothPts(series(k2), S.sm) : [], sm2m = {}; sm2.forEach(function (q) { sm2m[q[0]] = q[1]; }); c.legend.innerHTML = legendHtml();
       var ser = [{ pts: raw, color: k2 && !on ? 'var(--teal)' : 'var(--ink-3)', width: k2 && !on ? 1.7 : 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }];
       if (k2) { ser.push({ pts: raw2, color: 'var(--accent2)', width: on ? 1 : 1.7, dots: on, noLine: on, opacity: .85, axis2: true, dotOp: .4 }); ser.push({ pts: on ? sm2.filter(inWin) : [], color: 'var(--accent2)', width: 2.6, axis2: true }); }
-      var geo = lineChart(c.host, { breakGap: 3, pinX: S.pickDay, onPick: function (day) { S.pickDay = day; paint(); }, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? axisFmt(m2) : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
+      lineChart(c.host, { zoomKey: 'trend', onDraw: function (g_) { showPop(g_); }, breakGap: 3, pinX: S.pickDay, onPick: function (day) { S.pickDay = day; paint(); }, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? axisFmt(m2) : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
         yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: axisFmt(m),
         readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }), t = fmtShort(x) + '  ' + fmtv(y) + (on && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : '');
-          if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); showPop(geo); };
+          if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); };
     var pop = null;
     function closePop() { if (pop && pop.parentNode) pop.parentNode.removeChild(pop); pop = null; }
-    function showPop(geo) { closePop(); if (S.pickDay == null || !geo) return; var day = S.pickDay, ds = dayStr(day); if (day < winCut || day > dayNum(S.dates[S.dates.length - 1])) return;
+    function showPop(geo) { closePop(); if (S.pickDay == null || !geo) return; var day = S.pickDay, ds = dayStr(day); if (day < winCut || day > dayNum(S.dates[S.dates.length - 1]) || day < geo.x0 - 0.5 || day > geo.x1 + 0.5) return;
       var D = S.D[ds] || {}, on = S.sm >= 1.5, rows = [], keys = k2 ? [k, k2] : [k];
       pop = h('div', { class: 'pop' });
       pop.appendChild(h('div', { class: 'ph' }, [h('span', {}, [fmtDay(ds)]), h('button', { class: 'px', type: 'button', 'aria-label': 'Close', onclick: function () { S.pickDay = null; paint(); } }, ['×'])]));
@@ -583,7 +659,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
         pop.appendChild(sec); }
       var links = h('div', { class: 'ps' }); if (S.byDate[ds]) { links.appendChild(h('button', { class: 'pg', type: 'button', onclick: function () { S.date = ds; selectTab('today'); } }, ['Open this day'])); if (S.byDate[ds].bedtime_start) links.appendChild(h('button', { class: 'pg', type: 'button', onclick: function () { S.date = ds; selectTab('sleep'); } }, ['Open this night'])); }
       if (links.childNodes.length) pop.appendChild(links);
-      c.appendChild(pop); var cw = c.clientWidth, lx = c.host.offsetLeft + geo.sx(day), left = lx + 12; if (left + 270 > cw) left = Math.max(6, lx - 274); pop.style.left = left + 'px'; pop.style.top = (c.host.offsetTop + 18) + 'px'; }
+      var cw = c.clientWidth;
+      if (cw < 560) { pop.classList.add('flow'); c.insertBefore(pop, c.host.nextSibling); } // narrow screens: sit under the chart so a second tap (double-tap to reset) never lands on it
+      else { c.appendChild(pop); var lx = c.host.offsetLeft + geo.sx(day), left = lx + 12; if (left + 270 > cw) left = Math.max(6, lx - 274); pop.style.left = left + 'px'; pop.style.top = (c.host.offsetTop + 18) + 'px'; } }
     paint();
     function statsBlock(kk, pts, mm, fm, title) { var vals = pts.map(function (q) { return q[1]; }); if (!vals.length) return null; var g = h('div', { class: 'stats' });
       [['Average', avg(vals)], ['Best', mm.better === -1 ? Math.min.apply(null, vals) : Math.max.apply(null, vals)], ['Lowest', mm.better === -1 ? Math.max.apply(null, vals) : Math.min.apply(null, vals)], ['Latest', vals[vals.length - 1]], ['Days', vals.length], ['Std dev', sd(vals)]].forEach(function (a) {
@@ -641,11 +719,11 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var addSel = h('select', { 'aria-label': 'Add a measure to the timeline', style: 'max-width:100%' }); addSel.appendChild(h('option', { value: '' }, ['+ Add another measure to the timeline']));
     var gs = {}; MET.forEach(function (x_) { if (tlKeys().indexOf(x_.k) < 0) (gs[x_.g] || (gs[x_.g] = [])).push(x_); }); Object.keys(gs).forEach(function (g_) { var og = h('optgroup', { label: g_ }); gs[g_].forEach(function (x_) { og.appendChild(h('option', { value: x_.k }, [x_.l])); }); addSel.appendChild(og); });
     addSel.addEventListener('change', function () { if (addSel.value) { C.extra.push(addSel.value); renderCompare(); } }); addBar.appendChild(addSel);
-    tc.insertBefore(addBar, tc.host);
+    tc.insertBefore(addBar, tc.host); tc.appendChild(h('div', { class: 'zhint' }, ['Pinch or Ctrl-scroll to zoom, drag to pan, double-tap to reset.']));
     paintT = function () {
     var sw = wk ? Math.max(S.sm, 7) : S.sm, keys = tlKeys(), zs = keys.map(function (k_) { return z(smoothPts(series(k_), sw)); }), cut = Math.max.apply(null, zs.map(function (q) { return q.length ? q[0][0] : 0; }));
     tc.legend.innerHTML = tlLegend();
-    lineChart(tc.host, { breakGap: 3, h: 280, series: zs.map(function (q, i_) { return { pts: q.filter(function (r_) { return r_[0] >= cut; }), color: tlColor(i_), width: i_ === 1 ? 2.2 : 2 }; }), markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
+    lineChart(tc.host, { zoomKey: 'cmpt', breakGap: 3, h: 280, series: zs.map(function (q, i_) { return { pts: q.filter(function (r_) { return r_[0] >= cut; }), color: tlColor(i_), width: i_ === 1 ? 2.2 : 2 }; }), markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
       readSeries: 0, readout: function (x, y) { tc.read.textContent = fmtShort(x) + '  ' + zs.map(function (q, i_) { var a = q.find(function (r_) { return r_[0] === x; }); return (i_ === 0 ? 'X ' : i_ === 1 ? 'Y ' : 'M' + (i_ + 1) + ' ') + (a && a[1] != null ? a[1].toFixed(1) : '-'); }).join('   '); } });
     };
     paintT();
@@ -872,16 +950,16 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var wLegend = function () { return '<span><i style="background:var(--teal)"></i>Running</span><span><i style="background:var(--accent2)"></i>Riding</span>' + (S.sm >= 1.5 ? '<span>' + smoothName(S.sm) + '</span>' : ''); };
     var wc = chartCard('Weekly distance (km)', wLegend()); right.appendChild(wc);
     paintW = function () { var on = S.sm >= 1.5; wc.legend.innerHTML = wLegend();
-      lineChart(wc.host, { breakGap: 3, h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wd, S.sm) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wr, S.sm) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
+      lineChart(wc.host, { zoomKey: 'week', minSpan: 28, breakGap: 3, h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wd, S.sm) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wr, S.sm) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
         readSeries: 2, readout: function (x, y) { var b = wd.find(function (q) { return q[0] === x; }); wc.read.textContent = 'w/c ' + fmtShort(x) + '  run ' + r1(y) + ' km' + (b ? '  ride ' + r1(b[1]) + ' km' : ''); } }); };
     paintW();
     var z2 = runs.filter(function (a) { return a.extra && a.extra.zone2_pace_s_km; }).sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; });
     var fc = chartCard('Pace at Zone 2 heart rate (' + Z2[0] + ' to ' + Z2[1] + ' bpm, running only)', '<span>Higher on the chart is faster. Each point is one run.</span>'); right.appendChild(fc);
     var zp = z2.map(function (a) { return [dayNum(localDate(a.start_time)), -a.extra.zone2_pace_s_km]; });
-    lineChart(fc.host, { h: 200, series: [{ pts: zp, color: 'var(--teal)', width: 2, dots: true, dotR: 3.2, dotOp: .9 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return paceStr(-v); }, readout: function (x, y) { fc.read.textContent = fmtShort(x) + '  ' + paceStr(-y) + ' /km'; } });
+    lineChart(fc.host, { zoomKey: 'z2p', minSpan: 14, h: 200, series: [{ pts: zp, color: 'var(--teal)', width: 2, dots: true, dotR: 3.2, dotOp: .9 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return paceStr(-v); }, readout: function (x, y) { fc.read.textContent = fmtShort(x) + '  ' + paceStr(-y) + ' /km'; } });
     var lc = chartCard('Longest continuous run before heart rate passed ' + Z2[1] + ' (seconds)', '<span>Excludes the first 2.5 minutes. Run-walk runs only.</span>'); right.appendChild(lc);
     var lp = runs.filter(function (a) { return a.extra && a.extra.longest_zone2_run_s != null && (a.extra.zone2_share || 0) > .3; }).sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; }).map(function (a) { return [dayNum(localDate(a.start_time)), a.extra.longest_zone2_run_s]; });
-    lineChart(lc.host, { h: 180, series: [{ pts: lp, color: 'var(--accent2)', width: 2, dots: true, dotR: 3.2, dotOp: .9 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0, readout: function (x, y) { lc.read.textContent = fmtShort(x) + '  ' + dur(y); } });
+    lineChart(lc.host, { zoomKey: 'z2l', minSpan: 14, h: 180, series: [{ pts: lp, color: 'var(--accent2)', width: 2, dots: true, dotR: 3.2, dotOp: .9 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0, readout: function (x, y) { lc.read.textContent = fmtShort(x) + '  ' + dur(y); } });
     if (window.innerWidth >= 900 && S.actSel) renderDetailInto(detailHost, S.actSel);
   }
   function openDetail(a) { var d = $('detail'), inner = d.firstElementChild; inner.innerHTML = ''; d.style.display = 'block'; d.scrollTop = 0; document.body.style.overflow = 'hidden';
