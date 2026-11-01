@@ -129,7 +129,7 @@ svg.ch text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 .cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
 .cols > * { min-width: 0; }
 .card, .chartcard, .page { min-width: 0; max-width: 100%; }
-html, body { overflow-x: hidden; }
+html { overflow-x: hidden; }
 select, input, textarea { max-width: 100%; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
 .stat { padding: 9px 11px; }
@@ -683,17 +683,22 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     ec.appendChild(h('div', { class: 'ctl', style: 'display:flex;align-items:center;gap:12px;margin:2px 0 8px' }, [h('span', { class: 'lbl' }, ['Window']), h('span', { class: 'sub' }, ['7 days']), wr, h('span', { class: 'sub' }, ['365 days']), wv]));
     var capNote = h('div', { class: 'sub', style: 'margin:0 0 6px' }), lastDay = dayNum(S.dates[S.dates.length - 1]), evN = dayNum(ev.date);
     ec.appendChild(capNote);
-    var et = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Metric']), h('th', { style: 'text-align:right' }, ['Before']), h('th', { style: 'text-align:right' }, ['After']), h('th', {}, ['Change (relative to normal variation)'])])]), emp = h('div', { class: 'empty', style: 'display:none' }, ['Not enough data on both sides of this date for this window.']);
+    var et = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Metric']), h('th', { style: 'text-align:right' }, ['Before']), h('th', { style: 'text-align:right' }, ['After']), h('th', {}, ['Change (relative to normal variation), highest first'])])]), emp = h('div', { class: 'empty', style: 'display:none' }, ['Not enough data on both sides of this date for this window.']);
     var trs = {}; EV_KEYS.forEach(function (k_) { if (trs[k_]) return; var tdB = h('td', { class: 'n' }), tdA = h('td', { class: 'n' }), bar = h('div', { class: 'bar' }), fill = h('i', { style: 'transition:left .12s,width .12s,background .12s' }), dl = h('div', { class: 'delta' });
       bar.appendChild(fill); var tr = h('tr', { class: 'click', onclick: function () { S.trendKey = k_; selectTab('trends'); } }, [h('td', {}, [MK[k_].l]), tdB, tdA, h('td', {}, [bar, dl])]); trs[k_] = { tr: tr, tdB: tdB, tdA: tdA, fill: fill, dl: dl, d: 0 }; et.appendChild(tr); });
-    var hasSorted = false;
+    var tr0Animate = typeof Element !== 'undefined' && !!Element.prototype.animate;
     function paintEv(sort) { var win = S.evWin, rows = aroundEvent(ev, win), seen = {}; wv.textContent = '±' + win + ' days  ·  ' + fmtShort(evN - win) + ' to ' + fmtShort(Math.min(evN + win, lastDay));
       capNote.textContent = evN + win > lastDay ? 'The after side stops at the latest data (' + (lastDay - evN) + ' days after the event), so before and after cover different lengths of time.' : '';
       rows.forEach(function (x) { var r_ = trs[x.k]; seen[x.k] = 1; r_.d = x.d; r_.tr.style.display = ''; var good = MK[x.k].better ? (x.d * MK[x.k].better > 0) : null, col = good == null ? 'var(--ink-3)' : good ? 'var(--opt)' : 'var(--bad)', wdt = Math.min(50, Math.abs(x.d) * 35);
         r_.tdB.textContent = fmtMetric(x.k, x.a); r_.tdA.textContent = fmtMetric(x.k, x.b); r_.fill.style.background = col; r_.fill.style.width = wdt + '%'; r_.fill.style.left = (x.d >= 0 ? 50 : 50 - wdt) + '%'; r_.fill.style.right = 'auto';
         r_.dl.textContent = chgText(x.k, x.diff, x.pct) + '  (effect ' + (x.d >= 0 ? '+' : '') + x.d.toFixed(2) + ')'; });
       Object.keys(trs).forEach(function (k_) { if (!seen[k_]) trs[k_].tr.style.display = 'none'; });
-      if (sort || !hasSorted) { rows.forEach(function (x) { et.appendChild(trs[x.k].tr); }); hasSorted = rows.length > 0; }
+      // highest positive change first, re-sorted live. Each row glides from where it visibly is to its new place (Web Animations),
+      // so rapid slider moves keep sliding smoothly instead of stepping.
+      var before = {}; rows.forEach(function (x) { before[x.k] = trs[x.k].tr.getBoundingClientRect().top; });
+      rows.forEach(function (x) { var a_ = trs[x.k].anim; if (a_) { a_.cancel(); trs[x.k].anim = null; } });
+      var sorted = rows.slice().sort(function (a, b) { return b.d - a.d; }); sorted.forEach(function (x) { et.appendChild(trs[x.k].tr); });
+      if (tr0Animate) sorted.forEach(function (x) { var r_ = trs[x.k], dy = before[x.k] - r_.tr.getBoundingClientRect().top; if (Math.abs(dy) > 0.5 && before[x.k] > 0) r_.anim = r_.tr.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'translateY(0)' }], { duration: 320, easing: 'cubic-bezier(.22,.8,.24,1)' }); });
       et.style.display = rows.length ? '' : 'none'; emp.style.display = rows.length ? 'none' : ''; }
     var raf = 0; wr.addEventListener('input', function () { S.evWin = +wr.value; if (!raf) raf = requestAnimationFrame(function () { raf = 0; paintEv(false); }); });
     wr.addEventListener('change', function () { S.evWin = +wr.value; paintEv(true); });
@@ -938,6 +943,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       buildTable(); var withSleep = S.daily.filter(function (r) { return r.sleep_score != null; }); S.date = (withSleep.length ? withSleep[withSleep.length - 1] : S.daily[S.daily.length - 1] || {}).date || todayLocal();
       renderAll(); });
   }
+  // controls that rebuild a page must not send the reader back to the top; tab switches scroll to the top themselves
+  function keepScroll(fn) { return function () { var y = window.scrollY, r = fn.apply(this, arguments); window.scrollTo(0, y); return r; }; }
+  renderCompare = keepScroll(renderCompare); renderTrends = keepScroll(renderTrends); renderHeat = keepScroll(renderHeat); renderActivity = keepScroll(renderActivity); renderLog = keepScroll(renderLog);
   var RENDER = { today: renderToday, sleep: renderSleep, trends: renderTrends, compare: renderCompare, heat: renderHeat, activity: renderActivity, log: renderLog };
   function curTab() { var e = document.querySelector('.page.on'); return e ? e.id.slice(2) : 'today'; }
   function renderAll() { renderToday(); renderSleep(); renderTrends(); renderCompare(); renderHeat(); renderActivity(); renderLog(); }
