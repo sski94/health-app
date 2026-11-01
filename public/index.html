@@ -346,6 +346,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'load_28d', l: 'Training load per week, last 28 days', u: 'pts', f: r0, g: 'Training' },
     { k: 'climb_m', l: 'Climbing (day)', u: 'm', f: r0, sum: true, g: 'Training' },
     { k: 'over_pint', l: 'Over a pint (1 = yes)', f: yn, bin: true, sum: true, better: -1, g: 'Drinking' },
+    { k: 'pints', l: 'Pints (count)', u: 'pints', f: function (v) { return Number.isInteger(v) ? String(v) : v.toFixed(1); }, better: -1, g: 'Drinking' },
+    { k: 'pints_7d', l: 'Pints, last 7 days', u: 'pints', f: r0, better: -1, g: 'Drinking' },
+    { k: 'pints_28d', l: 'Pints per week, last 28 days', u: 'pints', f: r1, better: -1, g: 'Drinking' },
     { k: 'over_pint_7d', l: 'Days over a pint, last 7 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
     { k: 'over_pint_28d', l: 'Days over a pint, last 28 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
     { k: 'away', l: 'Away from home (1 = yes)', f: yn, bin: true, g: 'Travel' },
@@ -359,7 +362,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
 
   // ================= State =================
-  var S = { pickDay: null, trips: [], daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
+  var S = { pickDay: null, counts: {}, trips: [], daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
     trendKey: 'avg_hrv', trendCmp: '', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
     cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' }, actByDate: {} };
   try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; if (sv_.heatMode) S.heat.mode = sv_.heatMode; } catch (e) {}
@@ -417,13 +420,16 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       o.activity = (firstAct && d >= firstAct) ? (pd.n > 0 ? 1 : 0) : null; // no recorded activity counts as a rest day
       if (firstAct && d >= firstAct) { o.run_km = pd.run_km; o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; } // no recorded activity = 0
       var tp_ = tripOn(d); o.away = tp_ ? 1 : 0; o.tz_shift_h = tp_ ? Math.abs(tzOffsetH(tp_.tz, d) - tzOffsetH('Europe/London', d)) : 0; o.post_trip = !tp_ && S.trips.some(function (t) { var gap = dayNum(d) - dayNum(t.end_date); return gap > 0 && gap <= 14; }) ? 1 : 0;
-      if (S.drinks[d] != null) o.over_pint = S.drinks[d] ? 1 : 0; // 1 = drank over a pint, 0 = did not
+      // Pint counts come from the Obsidian drink counter. "Over a pint" is 2 or more pints; 0 or 1 pint counts as not over.
+      // For days with a TickTick tick that is what you said at the time; counts logged since the counter started feeding the dashboard win.
+      var cr_ = S.counts[d], tt_ = S.drinks[d]; if (cr_) o.pints = cr_.pints;
+      if (cr_ && cr_.source !== 'obsidian-history') o.over_pint = cr_.pints >= 2 ? 1 : 0; else if (tt_ != null) o.over_pint = tt_ ? 1 : 0; else if (cr_) o.over_pint = cr_.pints >= 2 ? 1 : 0;
       var ci = S.checkins[d]; if (ci) { if (ci.mood != null) o.mood = ci.mood; if (ci.stress != null) o.stress = ci.stress; if (ci.energy != null) o.energy = ci.energy; }
       S.D[d] = o; S.dates.push(d); }
     // rolling loads (only where every day in the window is covered)
     function roll(key, out, win, div) { for (var i = win - 1; i < S.dates.length; i++) { var s = 0, ok = true; for (var j = i - win + 1; j <= i; j++) { var v = S.D[S.dates[j]][key]; if (v == null) { ok = false; break; } s += v; } if (ok) S.D[S.dates[i]][out] = s / (div || 1); } }
     roll('run_km', 'run_km_7d', 7, 1); roll('run_km', 'run_km_28d', 28, 4); roll('ride_km', 'ride_km_7d', 7, 1); roll('active_min', 'active_min_7d', 7, 1); roll('load', 'load_7d', 7, 1); roll('load', 'load_28d', 28, 4);
-    roll('over_pint', 'over_pint_7d', 7, 1); roll('over_pint', 'over_pint_28d', 28, 1);
+    roll('over_pint', 'over_pint_7d', 7, 1); roll('over_pint', 'over_pint_28d', 28, 1); roll('pints', 'pints_7d', 7, 1); roll('pints', 'pints_28d', 28, 4);
   }
 
   // ================= Series, smoothing, stats =================
@@ -1203,6 +1209,21 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       if (!tpl.value.trim() || !tps.value || !tpe.value || tpe.value < tps.value) { toast('Add a place and valid dates'); return; } try { new Intl.DateTimeFormat('en-GB', { timeZone: tz_ }); } catch (e) { toast('Unknown time zone'); return; }
       supa.from('health_trips').insert({ start_date: tps.value, end_date: tpe.value, place: tpl.value.trim(), tz: tz_ }).select().then(function (res) { if (res.error) { toast('Could not add: ' + res.error.message); return; } S.trips = S.trips.concat(res.data).sort(function (x, y) { return x.start_date < y.start_date ? -1 : 1; });
         setTz(tps.value, tpe.value, tz_).then(function () {}); applyTz(); buildTable(); toast('Trip added'); renderLog(); }); }); tcard.appendChild(tadd);
+    // key that lets the Obsidian drink counter send pint counts here (only a hash is stored)
+    var kc = h('div', { class: 'card', style: 'margin-bottom:10px' }); right.appendChild(kc); kc.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Drink counter key for Obsidian']));
+    kc.appendChild(h('div', { class: 'sub', style: 'margin-bottom:8px;line-height:1.4' }, ['Lets the Drink Counter Widget in Obsidian send each day\'s pint count here. The key can only write drink counts and is shown once, so copy it straight into the plugin settings in Obsidian.']));
+    var kbox = h('div'), kmake = h('button', { class: 'pill', type: 'button', style: 'width:100%' }, ['Create a key']), klist = h('div', { style: 'margin-top:8px' });
+    kmake.addEventListener('click', function () { var b = new Uint8Array(24); crypto.getRandomValues(b); var key = 'dk_' + [].map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+      crypto.subtle.digest('SHA-256', new TextEncoder().encode(key)).then(function (buf) { var hash = [].map.call(new Uint8Array(buf), function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+        return supa.from('health_ingest_keys').insert({ key_hash: hash, label: 'Obsidian drink counter' }); }).then(function (res) { if (res.error) { toast('Could not create: ' + res.error.message); return; }
+        var inp = h('input', { type: 'text', readonly: 'readonly', value: key, style: 'font-family:var(--font-num);font-size:12px' }), cp = h('button', { class: 'pill', type: 'button', style: 'margin-top:6px;width:100%' }, ['Copy key']);
+        cp.addEventListener('click', function () { inp.select(); try { navigator.clipboard.writeText(key); toast('Copied'); } catch (e) { document.execCommand('copy'); toast('Copied'); } });
+        kbox.innerHTML = ''; kbox.appendChild(h('div', { class: 'sub', style: 'color:var(--bad);margin-bottom:4px' }, ['Copy this now. It will not be shown again.'])); kbox.appendChild(inp); kbox.appendChild(cp); loadKeys(); }); });
+    kc.appendChild(kmake); kc.appendChild(kbox); kc.appendChild(klist);
+    function loadKeys() { supa.from('health_ingest_keys').select('id,label,created_at,last_used_at').order('created_at', { ascending: false }).then(function (res) { klist.innerHTML = ''; var rows = (res && res.data) || []; if (!rows.length) return; klist.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Keys']));
+      rows.forEach(function (k_) { var del = h('button', { class: 'x', type: 'button', 'aria-label': 'Revoke key' }, ['\u00D7']); del.addEventListener('click', function () { if (!confirm('Revoke this key? The Obsidian counter stops sending until you add a new one.')) return; supa.from('health_ingest_keys').delete().eq('id', k_.id).then(function () { loadKeys(); }); });
+        klist.appendChild(h('div', { style: 'display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--hair);font-size:12px' }, [h('span', { style: 'flex:1;min-width:0' }, [k_.label + ' (made ' + String(k_.created_at).slice(0, 10) + ')', h('div', { class: 'sub', style: 'font-size:10px' }, [k_.last_used_at ? 'last used ' + String(k_.last_used_at).slice(0, 16).replace('T', ' ') : 'never used'])]), del])); }); }); }
+    loadKeys();
     var tl2 = h('div', { class: 'card' }); right.appendChild(tl2); tl2.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['Trips']));
     if (!S.trips.length) tl2.appendChild(h('div', { class: 'empty' }, ['No trips yet.']));
     S.trips.slice().sort(function (x, y) { return x.start_date < y.start_date ? 1 : -1; }).forEach(function (t) { var del = h('button', { class: 'x', 'aria-label': 'Delete trip', type: 'button' }, ['\u00D7']);
@@ -1214,9 +1235,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   // ================= Data + shell =================
   function loadAll() {
     return Promise.all([supa.from('health_uh_daily').select('*').order('date', { ascending: true }).range(0, 4999), supa.from('health_activities').select('*').order('start_time', { ascending: false }).range(0, 4999),
-      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999), supa.from('health_drinks').select('*').range(0, 4999), supa.from('health_trips').select('*').order('start_date', { ascending: true }).range(0, 499)]).then(function (rs) {
+      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999), supa.from('health_drinks').select('*').range(0, 4999), supa.from('health_trips').select('*').order('start_date', { ascending: true }).range(0, 499), supa.from('health_drink_counts').select('*').range(0, 4999)]).then(function (rs) {
       if (rs[0].error) throw rs[0].error; if (rs[1].error) throw rs[1].error;
-      S.trips = rs[5].error ? [] : (rs[5].data || []);
+      S.trips = rs[5].error ? [] : (rs[5].data || []); S.counts = {}; (rs[6].error ? [] : (rs[6].data || [])).forEach(function (c) { S.counts[c.date] = c; });
       S.daily = rs[0].data || []; S.daily.forEach(function (r) { r._tz0 = r.timezone; }); applyTz(); S.byDate = {}; S.daily.forEach(function (r) { S.byDate[r.date] = r; }); S.acts = rs[1].data || [];
       S.events = rs[2].error ? [] : (rs[2].data || []); S.checkins = {}; (rs[3].error ? [] : (rs[3].data || [])).forEach(function (c) { S.checkins[c.date] = c; });
       S.drinks = {}; (rs[4].error ? [] : (rs[4].data || [])).forEach(function (c) { S.drinks[c.date] = c.over_pint; });

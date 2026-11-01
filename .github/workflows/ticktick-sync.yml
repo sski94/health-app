@@ -2,8 +2,7 @@ name: TickTick drinks sync
 
 on:
   schedule:
-    - cron: "31 7 * * *"    # every morning, once the previous day has been ticked
-    - cron: "11 21 * * *"   # and every evening
+    - cron: "12,42 * * * *"   # every half hour: Obsidian pint counts go to TickTick, TickTick ticks come back
   workflow_dispatch: {}
 
 concurrency:

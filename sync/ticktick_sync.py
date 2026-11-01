@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Pull TickTick habit check-ins and upsert them into Supabase.
 
-Habit: 酒1杯 (one pint) -> health_drinks.
+Habit: 酒1杯 (one pint).
+  1. Pint counts set in Obsidian (health_drink_counts) -> TickTick: 0 or 1 pint = success, 2 or more = not (PINT_LIMIT).
+  2. TickTick check-ins -> health_drinks (over_pint) for the dashboard.
 
 Environment:
   TICKTICK_TOKEN                        TickTick API token (web app: Settings > Account & Security > API Token)
   SUPABASE_URL, SUPABASE_SERVICE_KEY    Supabase project URL and service-role key
   TICKTICK_MCP_URL  default https://mcp.ticktick.com (TickTick's own MCP server, Streamable HTTP, Bearer token)
   Habit names are matched after width normalisation, so full-width digits also match.
+  PINT_LIMIT      most pints that still counts as a success (default 1)
+  DRY_RUN         set to 1 to print what would be written to TickTick without writing
   START_DATE      first day to backfill (default 2025-11-27)
   REFRESH_DAYS    always re-fetch this many most recent days (default 14), because a day is
                   often ticked the following morning or edited later
@@ -83,6 +87,18 @@ class Supa:
         if st != 200:
             raise SystemExit(f"Supabase read failed: {st} {js}")
         return js[0]["date"] if js else None
+
+    def unsynced_counts(self):
+        st, js = http("GET", f"{self.url}/rest/v1/health_drink_counts?select=date,pints&ticktick_synced_at=is.null&order=date", self.h)
+        if st != 200:
+            raise SystemExit(f"Supabase read failed: {st} {js}")
+        return js
+
+    def mark_synced(self, date):
+        h = dict(self.h, Prefer="return=minimal")
+        st, js = http("PATCH", f"{self.url}/rest/v1/health_drink_counts?date=eq.{date}", h, {"ticktick_synced_at": dt.datetime.now(dt.timezone.utc).isoformat()})
+        if st not in (200, 204):
+            raise SystemExit(f"Supabase update failed: {st} {js}")
 
     def upsert(self, rows, table="health_drinks", conflict="date"):
         for i in range(0, len(rows), 200):
@@ -167,6 +183,19 @@ class TickTick:
             raise SystemExit(f"No habit named {name!r}. Habits seen: {[h.get('name') for h in habits if isinstance(h, dict)]}")
         return hits[0]["id"]
 
+    def set_checkin(self, hid, date, success, dry=False):
+        """Create or update the check-in for one day. Reuses the existing check-in id so no duplicate is made."""
+        stamp = int(date.replace("-", ""))
+        existing = [c for c in self.checkins(hid, dt.date.fromisoformat(date), dt.date.fromisoformat(date)) if c.get("stamp") == stamp]
+        now = dt.datetime.now(dt.timezone.utc).isoformat()
+        data = {"stamp": stamp, "status": 2 if success else 1, "value": 1.0 if success else 0.0, "goal": 1.0, "time": now, "opTime": now}
+        if existing and existing[0].get("id"):
+            data["id"] = existing[0]["id"]
+        if dry:
+            print(f"  [dry run] {date}: would set {'success' if success else 'fail'} (existing: {existing[0].get('status') if existing else 'none'})", flush=True)
+            return
+        self.call("upsert_habit_checkins", {"habit_id": hid, "checkin_data": data, "client_timezone": "Europe/London"})
+
     def checkins(self, hid, d0, d1):
         out, cur = [], d0
         while cur <= d1:
@@ -214,8 +243,20 @@ def main():
     def window(latest):
         return start if latest is None else max(start, dt.date.fromisoformat(latest) - dt.timedelta(days=refresh))
 
-    # one pint
+    # 1. Obsidian counts -> TickTick (success when pints <= limit)
     hid = tt.habit_id("酒1杯")
+    limit = int(os.environ.get("PINT_LIMIT", "1")); dry = os.environ.get("DRY_RUN") == "1"
+    todo = supa.unsynced_counts()
+    print(f"{len(todo)} Obsidian count(s) waiting to go to TickTick (success when {limit} pint or fewer)", flush=True)
+    for row in todo:
+        ok = row["pints"] <= limit
+        tt.set_checkin(hid, row["date"], ok, dry)
+        if not dry:
+            supa.upsert([{"date": row["date"], "over_pint": not ok, "source": "obsidian"}])
+            supa.mark_synced(row["date"])
+            print(f"  {row['date']}: {row['pints']} pint(s) -> {'success' if ok else 'fail'}", flush=True)
+
+    # 2. TickTick -> dashboard
     d0 = window(supa.latest_date())
     print(f"Pint habit: fetching {d0} to {d1}", flush=True)
     rows = rows_from_checkins(tt.checkins(hid, d0, d1))
