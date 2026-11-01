@@ -75,7 +75,47 @@ def parse_fit(path):
         "device": "Garmin Instinct 2", "extra": {},
     }
     stream = dict(s, activity_id=row["id"], latlng=None)
+    if running:
+        row["extra"] = zone2_metrics(s)
     return row, stream
+
+
+ZONE = (125, 145)          # Zone 2 heart-rate band from the training plan
+RUN_CADENCE = 145          # steps per minute at or above which a second counts as running
+WARMUP_S = 150
+
+
+def zone2_metrics(s):
+    """Per-run fitness measures for the Zone 2 plan, from the 1 Hz stream."""
+    t, hr, cad, spd = s["t"], s["hr"], s["cadence"], s["speed"]
+    if not hr or not cad or not spd:
+        return {}
+    n = len(t)
+    in_zone = run = 0
+    z2_speed_sum = z2_n = 0
+    best = cur = 0
+    for i in range(n):
+        if t[i] < WARMUP_S or hr[i] is None or cad[i] is None:
+            cur = 0
+            continue
+        running = cad[i] >= RUN_CADENCE
+        run += running
+        if ZONE[0] <= hr[i] <= ZONE[1]:
+            in_zone += 1
+            if running and spd[i]:
+                z2_speed_sum += spd[i]
+                z2_n += 1
+        if running and hr[i] <= ZONE[1]:
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 0
+    body = max(1, sum(1 for x in t if x >= WARMUP_S))
+    out = {"zone2_share": round(in_zone / body, 3), "run_share": round(run / body, 3),
+           "longest_zone2_run_s": best}
+    if z2_n >= 60:
+        out["zone2_pace_s_km"] = round(1000 / (z2_speed_sum / z2_n))
+    return out
 
 
 def parse_strava(path):
