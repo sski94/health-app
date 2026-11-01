@@ -404,7 +404,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   function fitH(h_) { var vh = window.innerHeight, vw = window.innerWidth; if (vw > vh && vh < 600) return Math.max(140, Math.min(h_, vh - 140)); return h_; }
   function lineChart(host, cfg) {
     var hasR = cfg.series.some(function (s) { return s.axis2 && s.pts.some(function (p) { return p[1] != null; }); });
-    var W = host.clientWidth || 340, H = fitH(cfg.h || 180), P = { l: 38, r: hasR ? 46 : 8, t: cfg.markers && cfg.markers.length ? 18 : 8, b: 20 };
+    var W = host.clientWidth || 340, H = fitH(cfg.h || 180), P = { l: 38, r: hasR ? 46 : 8, t: cfg.markers && cfg.markers.length ? 10 + 11 * Math.min(4, cfg.markers.length) : 8, b: 20 };
     var all = [], prim = [], sec = []; cfg.series.forEach(function (s) { s.pts.forEach(function (p) { if (p[1] != null) { all.push(p); (s.axis2 ? sec : prim).push(p); } }); }); host.innerHTML = '';
     if (!all.length) { host.innerHTML = '<div class="empty">No data in this range</div>'; return; }
     var x0 = cfg.xMin != null ? cfg.xMin : Math.min.apply(null, all.map(function (p) { return p[0]; })), x1 = cfg.xMax != null ? cfg.xMax : Math.max.apply(null, all.map(function (p) { return p[0]; }));
@@ -419,8 +419,16 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     if (hasR) niceTicks(y20, y21, 4).forEach(function (t) { var tx = sv('text', { x: W - P.r + 5, y: sy2(t) + 3, 'text-anchor': 'start' }, svg); tx.setAttribute('style', 'fill:' + (cfg.axis2Color || 'var(--accent2)')); tx.textContent = cfg.yFmt2 ? cfg.yFmt2(t) : t; });
     var xt = cfg.xTicks || niceTicks(x0, x1, Math.max(3, Math.round(W / 110)));
     xt.forEach(function (t, i) { var tx = sv('text', { x: sx(t), y: H - 5, 'text-anchor': i === 0 ? 'start' : i === xt.length - 1 ? 'end' : 'middle' }, svg); tx.textContent = cfg.xFmt ? cfg.xFmt(t) : t; });
-    (cfg.markers || []).forEach(function (m) { if (m.x < x0 || m.x > x1) return; var xx = sx(m.x); sv('line', { x1: xx, x2: xx, y1: P.t - 4, y2: H - P.b, stroke: 'var(--accent2)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: .85 }, svg);
-      var tx = sv('text', { x: xx + 3, y: P.t - 6, class: 'ev' }, svg); tx.textContent = m.label.length > 22 ? m.label.slice(0, 21) + '…' : m.label; });
+    // event markers: dashed line plus a label placed in the first of up to three rows where it does not collide; otherwise the line only (hover or tap the line for the name)
+    (function () { var ms = (cfg.markers || []).filter(function (m) { return m.x >= x0 && m.x <= x1; }).sort(function (a, b) { return a.x - b.x; }), rowsN = Math.min(4, (cfg.markers || []).length), ends = [], starts = [], maxLen = 28; for (var r_ = 0; r_ < rowsN; r_++) { ends.push(-1e9); starts.push(1e9); }
+      var cl = function (t, n) { return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+      ms.forEach(function (m) { var xx = sx(m.x), full = m.label, pick = null;
+        [[maxLen, false], [maxLen, true], [16, false], [16, true], [10, false], [10, true]].some(function (o) { var lab = cl(full, o[0]), w_ = lab.length * 5.6 + 4, left = o[1], a0 = left ? xx - 3 - w_ : xx + 3;
+          if (a0 < P.l - 2 || a0 + w_ > W - 2) return false;
+          for (var r_ = 0; r_ < rowsN; r_++) { if (a0 > ends[r_] + 4 || a0 + w_ < starts[r_] - 4) { pick = { lab: lab, w: w_, left: left, a0: a0, row: r_ }; return true; } } return false; });
+        var ln = sv('line', { x1: xx, x2: xx, y1: pick ? 6 + pick.row * 11 : P.t - 4, y2: H - P.b, stroke: 'var(--accent2)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: .85 }, svg); var tt = sv('title', {}, ln); tt.textContent = fmtShort(m.x) + '  ' + full;
+        if (pick) { if (pick.a0 > ends[pick.row]) { ends[pick.row] = pick.a0 + pick.w; if (starts[pick.row] == null || starts[pick.row] > 1e8) starts[pick.row] = pick.a0; } else { starts[pick.row] = pick.a0; }
+          var tx = sv('text', { x: pick.left ? xx - 3 : xx + 3, y: 12 + pick.row * 11, class: 'ev', 'text-anchor': pick.left ? 'end' : 'start' }, svg); tx.textContent = pick.lab; } }); })();
     if (cfg.pinX != null && cfg.pinX >= x0 && cfg.pinX <= x1) sv('line', { x1: sx(cfg.pinX), x2: sx(cfg.pinX), y1: P.t - 4, y2: H - P.b, stroke: 'var(--ink)', 'stroke-width': 1.2, opacity: .55 }, svg);
     cfg.series.forEach(function (s) {
       var fy = s.axis2 ? sy2 : sy, fb = s.axis2 ? y20 : y0;
@@ -565,7 +573,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       pop.appendChild(h('div', { class: 'ph' }, [h('span', {}, [fmtDay(ds)]), h('button', { class: 'px', type: 'button', 'aria-label': 'Close', onclick: function () { S.pickDay = null; paint(); } }, ['×'])]));
       keys.forEach(function (kk) { var mm = MK[kk], v = D[kk], sv_ = on ? (smoothPts(series(kk), S.sm).find(function (q) { return q[0] === day; }) || [])[1] : null, f = function (x) { return mm.f === hm || mm.f === clock ? mm.f(x) : String(mm.f(x)); };
         pop.appendChild(h('div', { class: 'pr' }, [h('span', {}, [mm.l]), h('span', { class: 'n' }, [v == null ? 'no data' : f(v) + (mm.u && mm.f !== hm && mm.f !== clock ? ' ' + mm.u : '') + (sv_ != null ? '  (trend ' + f(sv_) + ')' : '')])])); });
-      var evs = S.events.filter(function (e) { return e.date === ds; }); if (evs.length) pop.appendChild(h('div', { class: 'ps' }, [h('div', { class: 'pl' }, ['Event']), h('div', {}, [evs.map(function (e) { return e.label; }).join(', ')])]));
+      var span = dayNum(S.dates[S.dates.length - 1]) - Math.max(winCut, dayNum(S.dates[0])), tol = Math.max(0, Math.ceil(10 / Math.max(100, geo.W - 50) * span)), evs = S.events.filter(function (e) { return Math.abs(dayNum(e.date) - day) <= tol; }); if (evs.length) pop.appendChild(h('div', { class: 'ps' }, [h('div', { class: 'pl' }, [evs.length > 1 ? 'Events nearby' : 'Event']), h('div', {}, [evs.map(function (e) { return fmtShort(dayNum(e.date)) + '  ' + e.label; }).join('\n')])])); if (evs.length) pop.lastChild.lastChild.style.whiteSpace = 'pre-line';
       var acts = (S.actByDate[ds] || []).slice().sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; }), isAct = keys.some(function (kk) { return MK[kk].g === 'Training' || MK[kk].g === 'Activity'; });
       if (acts.length || isAct) { var sec = h('div', { class: 'ps' }, [h('div', { class: 'pl' }, [acts.length > 1 ? 'Activities that day' : 'Activity that day'])]);
         if (!acts.length) sec.appendChild(h('div', {}, ['No recorded activity']));
