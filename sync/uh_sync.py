@@ -55,8 +55,23 @@ def iso(ts):
     return None if ts is None else dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat()
 
 
+INT_COLS = ("sleep_score", "recovery_index", "movement_index", "sleep_rhr", "avg_hrv", "avg_hr",
+            "total_sleep_min", "time_in_bed_min", "efficiency", "restorative_pct", "deep_min",
+            "light_min", "rem_min", "awake_min", "cycles_full", "cycles_partial", "steps",
+            "vo2_max", "spo2")
+
+
 def prep_daily(row):
     r = dict(row)
+    for k in INT_COLS:                      # the API sometimes returns 4310.0 for whole numbers
+        v = r.get(k)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            r[k] = int(round(v))
+        elif isinstance(v, str):
+            try:
+                r[k] = int(round(float(v)))
+            except ValueError:
+                r[k] = None
     r["bedtime_start"] = iso(r.get("bedtime_start"))
     r["bedtime_end"] = iso(r.get("bedtime_end"))
     r["fetched_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
