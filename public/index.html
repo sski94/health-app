@@ -394,7 +394,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       var tx = sv('text', { x: xx + 3, y: P.t - 6, class: 'ev' }, svg); tx.textContent = m.label.length > 22 ? m.label.slice(0, 21) + '…' : m.label; });
     cfg.series.forEach(function (s) {
       var fy = s.axis2 ? sy2 : sy, fb = s.axis2 ? y20 : y0;
-      var d = '', pen = false, first = null, lastp = null; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + fy(p[1]).toFixed(1); pen = true; if (!first) first = p; lastp = p; });
+      var d = '', pen = false, first = null, lastp = null, prevx = null; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } if (cfg.breakGap && prevx != null && p[0] - prevx > cfg.breakGap) pen = false; prevx = p[0]; d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + fy(p[1]).toFixed(1); pen = true; if (!first) first = p; lastp = p; });
       if (s.fill && d) sv('path', { d: d + 'L' + sx(lastp[0]) + ' ' + fy(fb) + 'L' + sx(first[0]) + ' ' + fy(fb) + 'Z', fill: s.color, opacity: .1 }, svg);
       if (s.dots) s.pts.forEach(function (p) { if (p[1] != null) sv('circle', { cx: sx(p[0]), cy: fy(p[1]), r: s.dotR || 1.7, fill: s.color, opacity: s.dotOp || .45 }, svg); });
       if (d && !s.noLine) sv('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': s.width || 1.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: s.opacity || 1 }, svg); });
@@ -520,7 +520,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     paint = function () { var on = S.sm >= 1.5, sm = smoothPts(series(k), S.sm), smr = sm.filter(inWin), sm2 = k2 ? smoothPts(series(k2), S.sm) : [], sm2m = {}; sm2.forEach(function (q) { sm2m[q[0]] = q[1]; }); c.legend.innerHTML = legendHtml();
       var ser = [{ pts: raw, color: k2 && !on ? 'var(--teal)' : 'var(--ink-3)', width: k2 && !on ? 1.7 : 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }];
       if (k2) { ser.push({ pts: raw2, color: 'var(--accent2)', width: on ? 1 : 1.7, dots: on, noLine: on, opacity: .85, axis2: true, dotOp: .4 }); ser.push({ pts: on ? sm2.filter(inWin) : [], color: 'var(--accent2)', width: 2.6, axis2: true }); }
-      lineChart(c.host, { h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? axisFmt(m2) : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
+      lineChart(c.host, { breakGap: 3, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? axisFmt(m2) : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
         yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: axisFmt(m),
         readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }), t = fmtShort(x) + '  ' + fmtv(y) + (on && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : '');
           if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); };
@@ -571,7 +571,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var tc = chartCard('Over time, in standard deviations from each one\'s own average', '<span><i style="background:var(--accent2)"></i>' + esc(mx.l) + '</span><span><i style="background:var(--teal)"></i>' + esc(my.l) + '</span><span><i style="background:var(--ink-3)"></i>Event</span>'); right.appendChild(tc);
     paintT = function () {
     var s1 = smoothPts(series(C.x), wk ? Math.max(S.sm, 7) : S.sm), s2 = smoothPts(series(C.y), wk ? Math.max(S.sm, 7) : S.sm), z1 = z(s1), z2 = z(s2), cut = Math.max(z1.length ? z1[0][0] : 0, z2.length ? z2[0][0] : 0);
-    lineChart(tc.host, { h: 280, series: [{ pts: z1.filter(function (q) { return q[0] >= cut; }), color: 'var(--accent2)', width: 2 }, { pts: z2.filter(function (q) { return q[0] >= cut; }), color: 'var(--teal)', width: 2.2 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
+    lineChart(tc.host, { breakGap: 3, h: 280, series: [{ pts: z1.filter(function (q) { return q[0] >= cut; }), color: 'var(--accent2)', width: 2 }, { pts: z2.filter(function (q) { return q[0] >= cut; }), color: 'var(--teal)', width: 2.2 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
       readout: function (x, y) { var a = z1.find(function (q) { return q[0] === x; }), b = z2.find(function (q) { return q[0] === x; }); tc.read.textContent = fmtShort(x) + '  X ' + (a && a[1] != null ? a[1].toFixed(1) : '-') + '   Y ' + (b && b[1] != null ? b[1].toFixed(1) : '-'); } });
     };
     paintT();
@@ -765,7 +765,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var wLegend = function () { return '<span><i style="background:var(--teal)"></i>Running</span><span><i style="background:var(--accent2)"></i>Riding</span>' + (S.sm >= 1.5 ? '<span>' + smoothName(S.sm) + '</span>' : ''); };
     var wc = chartCard('Weekly distance (km)', wLegend()); right.appendChild(wc);
     paintW = function () { var on = S.sm >= 1.5; wc.legend.innerHTML = wLegend();
-      lineChart(wc.host, { h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wd, S.sm) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wr, S.sm) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
+      lineChart(wc.host, { breakGap: 3, h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wd, S.sm) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wr, S.sm) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
         readSeries: 2, readout: function (x, y) { var b = wd.find(function (q) { return q[0] === x; }); wc.read.textContent = 'w/c ' + fmtShort(x) + '  run ' + r1(y) + ' km' + (b ? '  ride ' + r1(b[1]) + ' km' : ''); } }); };
     paintW();
     var z2 = runs.filter(function (a) { return a.extra && a.extra.zone2_pace_s_km; }).sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; });
