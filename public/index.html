@@ -2,7 +2,7 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#F1F1F0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0B0C0C" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
@@ -100,6 +100,13 @@ svg.spark { width: 64px; height: 20px; flex: none; }
 .chartcard { padding: 11px 11px 6px; margin-bottom: 10px; min-width: 0; position: relative; }
 .pop { position: absolute; z-index: 5; width: 262px; max-width: calc(100% - 16px); background: var(--surface); border: 1px solid var(--hair); border-radius: 12px; padding: 10px 11px; box-shadow: 0 6px 22px rgba(0,0,0,.14); font-size: 12px; line-height: 1.4; }
 .pop { pointer-events: none; }
+.rklist { display: block; }
+.rk { display: grid; grid-template-columns: minmax(0, 1fr) 84px 32px; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--hair); cursor: pointer; }
+.rk.sel { background: var(--fill); border-radius: 8px; }
+.rk .nm { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.rk .su { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.rk .rv { font: 600 12px var(--font-num); text-align: right; margin-top: 3px; }
+.rk .add { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--hair); background: var(--surface); color: var(--ink); font: 600 16px var(--font); line-height: 1; cursor: pointer; }
 .pop.flow { position: static; width: auto; max-width: none; margin: 4px 3px 6px; box-shadow: none; pointer-events: auto; background: var(--bg); }
 .pop button { pointer-events: auto; }
 .pop .ph { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; }
@@ -138,7 +145,8 @@ svg.ch text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 .cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
 .cols > * { min-width: 0; }
 .card, .chartcard, .page { min-width: 0; max-width: 100%; }
-html { overflow-x: hidden; }
+html { overflow-x: hidden; touch-action: pan-x pan-y; }
+body { -webkit-text-size-adjust: 100%; }
 select, input, textarea { max-width: 100%; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
 .stat { padding: 9px 11px; }
@@ -471,6 +479,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   // Pinch zooms around your fingers, one finger pans when zoomed (with inertia) or scrubs the readout when not,
   // a tap picks a day, double-tap resets. Desktop: Ctrl or pinch on the trackpad zooms at the cursor, drag pans
   // when zoomed, horizontal scroll pans, double-click resets, and the + / - buttons work with a mouse alone.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (g_) { document.addEventListener(g_, function (e) { e.preventDefault(); }, { passive: false }); }); // iOS Safari: stop pinch zooming the whole page
   var ZOOM = {}, ZSEQ = 0;
   function bindZoom(host) {
     host.__zb = 1; var G = function () { return host.__lc; }, inertia = null, gest = { mode: null }, mouse = null, lastTouch = 0, lastTap = null;
@@ -696,9 +705,11 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var p = $('p-compare'), C = S.cmp; p.innerHTML = ''; var mx = MK[C.x], my = MK[C.y], wk = C.mode === 'weekly';
     p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Compare']), h('div', { class: 'sub' }, ['See what moves with what, and what changed around an event'])])]));
     var ctl = h('div', { class: 'card', style: 'margin-bottom:10px' }); var fr = h('div', { class: 'formrow' }, [h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Cause to test (X)']), metricSelect(C.x, function (v) { C.x = v; renderCompare(); })]), h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Outcome (Y)']), metricSelect(C.y, function (v) { C.y = v; renderCompare(); })])]); ctl.appendChild(fr);
-    var md = h('select', {}); [['daily', 'Day by day'], ['weekly', 'Week by week']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if (C.mode === a[0]) o.selected = true; md.appendChild(o); }); md.addEventListener('change', function () { C.mode = md.value; C.lag = Math.min(C.lag, md.value === 'weekly' ? 2 : 7); renderCompare(); });
-    var lg = h('select', {}); (wk ? [0, 1, 2] : [0, 1, 2, 3, 5, 7]).forEach(function (v) { var o = h('option', { value: v }, [v === 0 ? 'Same ' + (wk ? 'week' : 'day') : 'Y is ' + v + (wk ? ' week' : ' day') + (v > 1 ? 's' : '') + ' after X']); if (C.lag === v) o.selected = true; lg.appendChild(o); }); lg.addEventListener('change', function () { C.lag = +lg.value; renderCompare(); });
-    ctl.appendChild(h('div', { class: 'formrow' }, [h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Compare']), md]), h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Timing']), lg])])); p.appendChild(ctl);
+    var md = h('select', {}); [['daily', 'Each day'], ['weekly', 'Each week (weekly averages)']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if (C.mode === a[0]) o.selected = true; md.appendChild(o); }); md.addEventListener('change', function () { C.mode = md.value; C.lag = Math.min(C.lag, md.value === 'weekly' ? 2 : 7); renderCompare(); });
+    var unit = wk ? 'week' : 'day', lagTxt = function (v) { return v === 0 ? 'Same ' + unit : 'Y ' + v + ' ' + unit + (v > 1 ? 's' : '') + ' after X'; };
+    var lg = h('select', {}); (wk ? [0, 1, 2] : [0, 1, 2, 3, 5, 7]).forEach(function (v) { var o = h('option', { value: v }, [lagTxt(v)]); if (C.lag === v) o.selected = true; lg.appendChild(o); }); lg.addEventListener('change', function () { C.lag = +lg.value; renderCompare(); });
+    ctl.appendChild(h('div', { class: 'formrow' }, [h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Each point is']), md]), h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Gap between X and Y']), lg])]));
+    ctl.appendChild(h('div', { class: 'sub', style: 'line-height:1.45' }, [C.lag === 0 ? 'Pairs ' + mx.l + ' with ' + my.l + ' from the same ' + unit + '.' : 'Pairs ' + mx.l + ' on one ' + unit + ' with ' + my.l + ' ' + C.lag + ' ' + unit + (C.lag > 1 ? 's' : '') + ' later. Use a gap to test whether something today shows up in the outcome later, such as drinking tonight and HRV tomorrow.'])); p.appendChild(ctl);
     var paintT; p.appendChild(smoothCtl(function () { paintT(); }));
     var cols = h('div', { class: 'cols c2' }); p.appendChild(cols); var pr = pairs(C.x, C.y, C.mode, C.lag), left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
     var sc = chartCard(my.l + ' against ' + mx.l.toLowerCase()); left.appendChild(sc); var rg = scatter(sc.host, pr, mx.l + (mx.u ? ' (' + mx.u + ')' : ''), my.l + (my.u ? ' (' + my.u + ')' : ''), function (v) { return mx.f === hm || mx.f === clock ? mx.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (v) { return my.f === hm || my.f === clock ? my.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (t) { sc.read.textContent = t; });
@@ -730,23 +741,27 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     // ranked correlations against the outcome (Y): click a row to put that measure on X
     var dc = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(dc);
     dc.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:2px' }, ['Everything ranked against ' + my.l.toLowerCase()]));
-    dc.appendChild(h('div', { class: 'sub', style: 'margin-bottom:8px' }, ['Day by day. Each row shows how closely a measure moves with this outcome. Click a row to put it on the graph above.']));
-    var rkS = h('select', {}); [['strength', 'Strongest link first'], ['pos', 'Highest positive first'], ['neg', 'Most negative first']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if ((C.rank || 'strength') === a[0]) o.selected = true; rkS.appendChild(o); });
+    dc.appendChild(h('div', { class: 'sub', style: 'margin-bottom:8px' }, ['Each row shows how closely a measure moves with this outcome. Tap a row to put it on the graph above, or + to add it to the timeline.']));
+    var rkS = h('select', {}); [['strength', 'Strongest first'], ['pos', 'Most positive'], ['neg', 'Most negative']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if ((C.rank || 'strength') === a[0]) o.selected = true; rkS.appendChild(o); });
     rkS.addEventListener('change', function () { C.rank = rkS.value; renderCompare(); });
-    var rkL = h('select', {}); [['best', 'Best timing, same day to a week before'], ['0', 'Same day only'], ['1', 'Day before only']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if ((C.rankLag || 'best') === a[0]) o.selected = true; rkL.appendChild(o); });
+    var rkL = h('select', {}); [['best', 'Best gap (0 to 7 days)'], ['0', 'Same day only'], ['1', '1 day earlier only']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if ((C.rankLag || 'best') === a[0]) o.selected = true; rkL.appendChild(o); });
     rkL.addEventListener('change', function () { C.rankLag = rkL.value; renderCompare(); });
-    dc.appendChild(h('div', { class: 'formrow', style: 'margin-bottom:8px' }, [rkS, rkL]));
+    dc.appendChild(h('div', { class: 'formrow', style: 'margin-bottom:4px' }, [rkS, rkL]));
+    dc.appendChild(h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['The gap is how many days earlier a measure is than ' + my.l + '. "Try gaps" picks whichever gap gives the strongest link for each measure.']));
     var fam = function (k) { return k.replace(/_(7d|28d)$/, '').replace(/^days_/, ''); }, lags = (C.rankLag || 'best') === 'best' ? [0, 1, 2, 3, 5, 7] : [+C.rankLag], dr = [];
     MET.forEach(function (x) { if (x.k === C.y || fam(x.k) === fam(C.y)) return; var best = null;
       lags.forEach(function (lag) { var q = pairs(x.k, C.y, 'daily', lag, true); if (q.xs.length < 60) return; var r_ = pearson(q.xs, q.ys); if (r_ == null) return; var sc_ = (C.rank || 'strength') === 'pos' ? r_ : (C.rank === 'neg' ? -r_ : Math.abs(r_)); if (!best || sc_ > best.sc) best = { k: x.k, lag: lag, r: r_, n: q.xs.length, sc: sc_ }; });
       if (best) dr.push(best); });
     dr = dr.filter(function (x) { return !(MK[x.k].g === 'Heart' && MK[C.y].g === 'Heart' && Math.abs(x.r) > .97); }).sort(function (a, b) { return b.sc - a.sc; });
     var strength = function (r_) { var a = Math.abs(r_); return a >= .5 ? 'strong' : a >= .3 ? 'moderate' : a >= .15 ? 'weak' : 'little or none'; };
-    var dt = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['#']), h('th', {}, ['Measure']), h('th', {}, ['Timing']), h('th', {}, ['Link']), h('th', { style: 'text-align:right' }, ['r']), h('th', { style: 'text-align:right' }, ['Days']), h('th', {}, [''])])]);
-    dr.forEach(function (x, ix) { var wdt = Math.abs(x.r) * 50, on = x.k === C.x && x.lag === C.lag && C.mode === 'daily';
-      dt.appendChild(h('tr', { class: 'click' + (on ? ' sel' : ''), onclick: function () { C.x = x.k; C.lag = x.lag; C.mode = 'daily'; renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [h('td', { class: 'n' }, [String(ix + 1)]), h('td', {}, [MK[x.k].l]), h('td', {}, [x.lag ? x.lag + (x.lag > 1 ? ' days' : ' day') + ' before' : 'same day']),
-        h('td', {}, [h('div', { class: 'bar', title: strength(x.r), html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' })]), h('td', { class: 'n' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2) + ' ' + strength(x.r).split(' ')[0]]), h('td', { class: 'n' }, [String(x.n)]), h('td', {}, [h('button', { class: 'chip', type: 'button', title: 'Add to the timeline above', onclick: function (ev) { ev.stopPropagation(); if (C.extra.indexOf(x.k) < 0 && x.k !== C.x && x.k !== C.y) C.extra.push(x.k); renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, ['+ timeline'])])])); });
-    dc.appendChild(dr.length ? h('div', { style: 'max-height:440px;overflow:auto' }, [dt]) : h('div', { class: 'empty' }, ['Not enough overlapping data']));
+    var shown = C.rankAll ? dr : dr.slice(0, 12), list = h('div', { class: 'rklist' });
+    shown.forEach(function (x, ix) { var wdt = Math.abs(x.r) * 50, on = x.k === C.x && x.lag === C.lag && C.mode === 'daily';
+      list.appendChild(h('div', { class: 'rk' + (on ? ' sel' : ''), onclick: function () { C.x = x.k; C.lag = x.lag; C.mode = 'daily'; renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, [
+        h('div', { style: 'min-width:0' }, [h('div', { class: 'nm' }, [(ix + 1) + '. ' + MK[x.k].l]), h('div', { class: 'su' }, [(x.lag ? x.lag + (x.lag > 1 ? ' days' : ' day') + ' earlier' : 'same day') + ' · ' + strength(x.r) + ' · ' + x.n + ' days of data'])]),
+        h('div', { style: 'min-width:0' }, [h('div', { class: 'bar', title: strength(x.r), html: '<i style="background:' + (x.r >= 0 ? 'var(--teal)' : 'var(--accent2)') + ';' + (x.r >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'rv' }, [(x.r >= 0 ? '+' : '') + x.r.toFixed(2)])]),
+        h('button', { class: 'add', type: 'button', title: 'Add to the timeline above', 'aria-label': 'Add ' + MK[x.k].l + ' to the timeline', onclick: function (ev) { ev.stopPropagation(); if (C.extra.indexOf(x.k) < 0 && x.k !== C.x && x.k !== C.y) C.extra.push(x.k); renderCompare(); window.scrollTo({ top: 0, behavior: 'smooth' }); } }, ['+'])])); });
+    dc.appendChild(dr.length ? list : h('div', { class: 'empty' }, ['Not enough overlapping data']));
+    if (dr.length > 12) dc.appendChild(h('button', { class: 'chip', type: 'button', style: 'margin-top:8px', onclick: function () { C.rankAll = !C.rankAll; renderCompare(); } }, [C.rankAll ? 'Show fewer' : 'Show all ' + dr.length + ' measures']));
     dc.appendChild(h('div', { class: 'sub', style: 'margin-top:6px' }, ['r runs from -1 to +1. Testing many measures at once means some strong-looking links will be chance, especially with few days, so treat the top of the list as leads to check, not conclusions.']));
     // around an event
     var ec = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(ec);
