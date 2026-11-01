@@ -1,0 +1,28 @@
+name: TickTick drinks sync
+
+on:
+  schedule:
+    - cron: "31 7 * * *"    # every morning, once the previous day has been ticked
+    - cron: "11 21 * * *"   # and every evening
+  workflow_dispatch: {}
+
+concurrency:
+  group: ticktick-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Sync TickTick habit to Supabase
+        working-directory: sync
+        env:
+          TICKTICK_TOKEN: ${{ secrets.TICKTICK_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 -u ticktick_sync.py
