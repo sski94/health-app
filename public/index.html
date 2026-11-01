@@ -95,7 +95,18 @@ svg.spark { width: 64px; height: 20px; flex: none; }
 .empty { padding: 26px 16px; text-align: center; color: var(--ink-soft); font-size: 14px; }
 
 /* charts and controls */
-.chartcard { padding: 11px 11px 6px; margin-bottom: 10px; min-width: 0; }
+.chartcard { padding: 11px 11px 6px; margin-bottom: 10px; min-width: 0; position: relative; }
+.pop { position: absolute; z-index: 5; width: 262px; max-width: calc(100% - 16px); background: var(--surface); border: 1px solid var(--hair); border-radius: 12px; padding: 10px 11px; box-shadow: 0 6px 22px rgba(0,0,0,.14); font-size: 12px; line-height: 1.4; }
+.pop .ph { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; }
+.pop .px { border: 0; background: none; font-size: 16px; line-height: 1; cursor: pointer; color: var(--ink-3); padding: 0 2px; }
+.pop .pr { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.pop .pr .n { font-family: var(--font-num); font-weight: 600; text-align: right; }
+.pop .ps { margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--hair); }
+.pop .pl { font: 500 10px var(--font-num); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 3px; }
+.pop .pa { display: block; width: 100%; text-align: left; border: 1px solid var(--hair); background: var(--bg); border-radius: 8px; padding: 6px 8px; margin-bottom: 4px; cursor: pointer; font: inherit; color: inherit; }
+.pop .pa .s { color: var(--ink-3); font-size: 11px; }
+.pop .pg { border: 0; background: none; color: var(--teal); cursor: pointer; padding: 3px 0 0; font: inherit; font-weight: 600; margin-right: 12px; }
+svg.ch.pick { cursor: pointer; }
 .chartcard .top { display: flex; justify-content: space-between; align-items: baseline; margin: 0 3px 4px; gap: 8px; }
 .chartcard .read { font: 500 12px var(--font-num); min-height: 15px; text-align: right; }
 svg.ch { display: block; width: 100%; height: auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
@@ -287,7 +298,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
 
   // ================= State =================
-  var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
+  var S = { pickDay: null, daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
     trendKey: 'avg_hrv', trendCmp: '', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
     cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' }, actByDate: {} };
   try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; if (sv_.heatMode) S.heat.mode = sv_.heatMode; } catch (e) {}
@@ -400,6 +411,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     xt.forEach(function (t, i) { var tx = sv('text', { x: sx(t), y: H - 5, 'text-anchor': i === 0 ? 'start' : i === xt.length - 1 ? 'end' : 'middle' }, svg); tx.textContent = cfg.xFmt ? cfg.xFmt(t) : t; });
     (cfg.markers || []).forEach(function (m) { if (m.x < x0 || m.x > x1) return; var xx = sx(m.x); sv('line', { x1: xx, x2: xx, y1: P.t - 4, y2: H - P.b, stroke: 'var(--accent2)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: .85 }, svg);
       var tx = sv('text', { x: xx + 3, y: P.t - 6, class: 'ev' }, svg); tx.textContent = m.label.length > 22 ? m.label.slice(0, 21) + '…' : m.label; });
+    if (cfg.pinX != null && cfg.pinX >= x0 && cfg.pinX <= x1) sv('line', { x1: sx(cfg.pinX), x2: sx(cfg.pinX), y1: P.t - 4, y2: H - P.b, stroke: 'var(--ink)', 'stroke-width': 1.2, opacity: .55 }, svg);
     cfg.series.forEach(function (s) {
       var fy = s.axis2 ? sy2 : sy, fb = s.axis2 ? y20 : y0;
       var d = '', pen = false, first = null, lastp = null, prevx = null; s.pts.forEach(function (p) { if (p[1] == null) { pen = false; return; } if (cfg.breakGap && prevx != null && p[0] - prevx > cfg.breakGap) pen = false; prevx = p[0]; d += (pen ? 'L' : 'M') + sx(p[0]).toFixed(1) + ' ' + fy(p[1]).toFixed(1); pen = true; if (!first) first = p; lastp = p; });
@@ -412,6 +424,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
         base.forEach(function (p) { var dd = Math.abs(sx(p[0]) - px); if (dd < bd) { bd = dd; best = p; } }); if (!best) return;
         cross.setAttribute('x1', sx(best[0])); cross.setAttribute('x2', sx(best[0])); cross.setAttribute('opacity', 1); mark.setAttribute('cx', sx(best[0])); mark.setAttribute('cy', sy(best[1])); mark.setAttribute('opacity', 1); cfg.readout(best[0], best[1]); };
       svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); }
+    if (cfg.onPick) { svg.classList.add('pick'); svg.addEventListener('click', function (ev) { var r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W; if (px < P.l || px > W - P.r) return;
+      cfg.onPick(Math.round(x0 + (px - P.l) / ((W - P.l - P.r) || 1) * (x1 - x0))); }); }
+    return { sx: sx, W: W, P: P };
   }
   function scatter(host, pr, xl, yl, xf, yf, onRead) {
     var W = host.clientWidth || 340, H = 280, P = { l: 44, r: 10, t: 10, b: 30 }; host.innerHTML = '';
@@ -507,10 +522,10 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Trends']), h('div', { class: 'sub' }, [m.l])])]));
     var groups = {}; MET.forEach(function (x) { (groups[x.g] || (groups[x.g] = [])).push(x); });
     var sel = h('select', { 'aria-label': 'Metric' }); Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { var o = h('option', { value: x.k }, [x.l]); if (x.k === k) o.selected = true; og.appendChild(o); }); sel.appendChild(og); });
-    sel.addEventListener('change', function () { S.trendKey = sel.value; renderTrends(); });
+    sel.addEventListener('change', function () { S.trendKey = sel.value; S.pickDay = null; renderTrends(); });
     var csel = h('select', { 'aria-label': 'Compare with' }); csel.appendChild(h('option', { value: '' }, ['Compare with another measure (optional)']));
     Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { if (x.k === k) return; var o = h('option', { value: x.k }, [x.l]); if (x.k === S.trendCmp) o.selected = true; og.appendChild(o); }); csel.appendChild(og); });
-    csel.addEventListener('change', function () { S.trendCmp = csel.value; renderTrends(); });
+    csel.addEventListener('change', function () { S.trendCmp = csel.value; S.pickDay = null; renderTrends(); });
     var top = h('div', { class: 'card ctl' }, [h('div', { style: 'flex:1;min-width:180px' }, [sel]), h('div', { style: 'flex:1;min-width:180px' }, [csel])]);
     [[30, '30D'], [90, '90D'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (S.range === a[0] ? ' on' : ''), onclick: function () { S.range = a[0]; renderTrends(); } }, [a[1]])); }); p.appendChild(top);
     var paint; p.appendChild(smoothCtl(function () { paint(); }));
@@ -528,10 +543,29 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     paint = function () { var on = S.sm >= 1.5, sm = smoothPts(series(k), S.sm), smr = sm.filter(inWin), sm2 = k2 ? smoothPts(series(k2), S.sm) : [], sm2m = {}; sm2.forEach(function (q) { sm2m[q[0]] = q[1]; }); c.legend.innerHTML = legendHtml();
       var ser = [{ pts: raw, color: k2 && !on ? 'var(--teal)' : 'var(--ink-3)', width: k2 && !on ? 1.7 : 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }];
       if (k2) { ser.push({ pts: raw2, color: 'var(--accent2)', width: on ? 1 : 1.7, dots: on, noLine: on, opacity: .85, axis2: true, dotOp: .4 }); ser.push({ pts: on ? sm2.filter(inWin) : [], color: 'var(--accent2)', width: 2.6, axis2: true }); }
-      lineChart(c.host, { breakGap: 3, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? axisFmt(m2) : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
+      var geo = lineChart(c.host, { breakGap: 3, pinX: S.pickDay, onPick: function (day) { S.pickDay = day; paint(); }, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? axisFmt(m2) : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
         yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: axisFmt(m),
         readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }), t = fmtShort(x) + '  ' + fmtv(y) + (on && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : '');
-          if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); };
+          if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); showPop(geo); };
+    var pop = null;
+    function closePop() { if (pop && pop.parentNode) pop.parentNode.removeChild(pop); pop = null; }
+    function showPop(geo) { closePop(); if (S.pickDay == null || !geo) return; var day = S.pickDay, ds = dayStr(day); if (day < winCut || day > dayNum(S.dates[S.dates.length - 1])) return;
+      var D = S.D[ds] || {}, on = S.sm >= 1.5, rows = [], keys = k2 ? [k, k2] : [k];
+      pop = h('div', { class: 'pop' });
+      pop.appendChild(h('div', { class: 'ph' }, [h('span', {}, [fmtDay(ds)]), h('button', { class: 'px', type: 'button', 'aria-label': 'Close', onclick: function () { S.pickDay = null; paint(); } }, ['×'])]));
+      keys.forEach(function (kk) { var mm = MK[kk], v = D[kk], sv_ = on ? (smoothPts(series(kk), S.sm).find(function (q) { return q[0] === day; }) || [])[1] : null, f = function (x) { return mm.f === hm || mm.f === clock ? mm.f(x) : String(mm.f(x)); };
+        pop.appendChild(h('div', { class: 'pr' }, [h('span', {}, [mm.l]), h('span', { class: 'n' }, [v == null ? 'no data' : f(v) + (mm.u && mm.f !== hm && mm.f !== clock ? ' ' + mm.u : '') + (sv_ != null ? '  (trend ' + f(sv_) + ')' : '')])])); });
+      var evs = S.events.filter(function (e) { return e.date === ds; }); if (evs.length) pop.appendChild(h('div', { class: 'ps' }, [h('div', { class: 'pl' }, ['Event']), h('div', {}, [evs.map(function (e) { return e.label; }).join(', ')])]));
+      var acts = (S.actByDate[ds] || []).slice().sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; }), isAct = keys.some(function (kk) { return MK[kk].g === 'Training' || MK[kk].g === 'Activity'; });
+      if (acts.length || isAct) { var sec = h('div', { class: 'ps' }, [h('div', { class: 'pl' }, [acts.length > 1 ? 'Activities that day' : 'Activity that day'])]);
+        if (!acts.length) sec.appendChild(h('div', {}, ['No recorded activity']));
+        acts.forEach(function (a) { var km = (a.distance_m || 0) / 1000, ride = sportKind(a) === 'ride', bits = [];
+          if (km >= 0.05) bits.push(km.toFixed(km < 10 ? 2 : 1) + ' km'); bits.push(dur(a.moving_time_s || 0)); if (km >= 0.05 && a.moving_time_s) bits.push(ride ? (km / (a.moving_time_s / 3600)).toFixed(1) + ' km/h' : paceStr(a.moving_time_s / km) + ' /km'); if (a.avg_hr) bits.push(Math.round(a.avg_hr) + ' bpm'); bits.push('load ' + Math.round(trimp(a)));
+          sec.appendChild(h('button', { class: 'pa', type: 'button', onclick: function () { S.actSel = a; S.sport = 'all'; selectTab('activity'); } }, [h('div', {}, [(a.name || 'Activity') + ' '], ), h('div', { class: 's' }, [(a.sport || '') + ' · ' + new Date(a.start_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: TZ }) + ' · ' + bits.join(' · ')])])); });
+        pop.appendChild(sec); }
+      var links = h('div', { class: 'ps' }); if (S.byDate[ds]) { links.appendChild(h('button', { class: 'pg', type: 'button', onclick: function () { S.date = ds; selectTab('today'); } }, ['Open this day'])); if (S.byDate[ds].bedtime_start) links.appendChild(h('button', { class: 'pg', type: 'button', onclick: function () { S.date = ds; selectTab('sleep'); } }, ['Open this night'])); }
+      if (links.childNodes.length) pop.appendChild(links);
+      c.appendChild(pop); var cw = c.clientWidth, lx = c.host.offsetLeft + geo.sx(day), left = lx + 12; if (left + 270 > cw) left = Math.max(6, lx - 274); pop.style.left = left + 'px'; pop.style.top = (c.host.offsetTop + 18) + 'px'; }
     paint();
     function statsBlock(kk, pts, mm, fm, title) { var vals = pts.map(function (q) { return q[1]; }); if (!vals.length) return null; var g = h('div', { class: 'stats' });
       [['Average', avg(vals)], ['Best', mm.better === -1 ? Math.min.apply(null, vals) : Math.max.apply(null, vals)], ['Lowest', mm.better === -1 ? Math.max.apply(null, vals) : Math.min.apply(null, vals)], ['Latest', vals[vals.length - 1]], ['Days', vals.length], ['Std dev', sd(vals)]].forEach(function (a) {
