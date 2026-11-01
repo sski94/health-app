@@ -61,7 +61,9 @@ select, input, textarea { font: inherit; color: var(--ink); background: var(--fi
 
 /* shell */
 #app { display: none; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0) + 18px); }
-.page { display: none; padding: 12px 12px 0; max-width: 780px; margin: 0 auto; }
+.page { display: none; padding: 12px max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); max-width: 780px; margin: 0 auto; }
+@media (max-width: 899px) { select, input, textarea { font-size: 16px; } }
+@media (max-width: 899px) and (orientation: landscape) { .head { margin: 0 2px 6px; } .head .sub { display: none; } .chartcard { padding-bottom: 4px; } select, input, textarea { padding-top: 6px; padding-bottom: 6px; } .ctl { padding: 4px 12px; margin-bottom: 6px; } .card { padding: 10px; } .formrow { margin-bottom: 6px; } }
 .page.on { display: block; }
 .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 2px 12px; }
 .head h1 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
@@ -121,9 +123,14 @@ svg.ch text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 .ctl { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 10px; flex-wrap: wrap; }
 .ctl input[type=range] { padding: 0; height: 24px; flex: 1; min-width: 120px; accent-color: var(--teal); background: none; border: 0; }
 .ctl .val { font: 600 12px var(--font-num); min-width: 62px; text-align: right; }
-.formrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-.formrow.three { grid-template-columns: 1fr 1fr 1fr; }
-.cols { display: grid; gap: 10px; align-items: start; }
+.formrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-bottom: 8px; }
+.formrow.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.formrow > * { min-width: 0; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
+.cols > * { min-width: 0; }
+.card, .chartcard, .page { min-width: 0; max-width: 100%; }
+html, body { overflow-x: hidden; }
+select, input, textarea { max-width: 100%; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
 .stat { padding: 9px 11px; }
 .stat .v { font: 600 17px var(--font-num); margin-top: 4px; }
@@ -169,8 +176,8 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   .head h1 { font-size: 24px; }
   .scores { grid-template-columns: repeat(3, 1fr); }
   .grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
-  .cols.c2 { grid-template-columns: 1fr 1fr; }
-  .cols.c3 { grid-template-columns: 1fr 1fr 1fr; }
+  .cols.c2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cols.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .cols.side { grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); }
   .cols.act { grid-template-columns: 380px minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(6, 1fr); }
@@ -393,9 +400,11 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   function sv(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
   function niceTicks(lo, hi, n) { var span = hi - lo || 1, step = Math.pow(10, Math.floor(Math.log10(span / n))), err = span / n / step; step *= err >= 7 ? 10 : err >= 3 ? 5 : err >= 1.5 ? 2 : 1; var t = [], v = Math.ceil(lo / step) * step; for (; v <= hi + 1e-9; v += step) t.push(+v.toFixed(6)); return t; }
   /* cfg: {h,series:[{pts,color,width,dots,fill,opacity}],xFmt,yFmt,xMin,xMax,yMin,yMax,xTicks,bands:[{from,to,color,op}],markers:[{x,label}],readout} */
+  // When the phone is sideways the screen is short: keep a chart small enough to see whole above the tab bar.
+  function fitH(h_) { var vh = window.innerHeight, vw = window.innerWidth; if (vw > vh && vh < 600) return Math.max(140, Math.min(h_, vh - 140)); return h_; }
   function lineChart(host, cfg) {
     var hasR = cfg.series.some(function (s) { return s.axis2 && s.pts.some(function (p) { return p[1] != null; }); });
-    var W = host.clientWidth || 340, H = cfg.h || 180, P = { l: 38, r: hasR ? 46 : 8, t: cfg.markers && cfg.markers.length ? 18 : 8, b: 20 };
+    var W = host.clientWidth || 340, H = fitH(cfg.h || 180), P = { l: 38, r: hasR ? 46 : 8, t: cfg.markers && cfg.markers.length ? 18 : 8, b: 20 };
     var all = [], prim = [], sec = []; cfg.series.forEach(function (s) { s.pts.forEach(function (p) { if (p[1] != null) { all.push(p); (s.axis2 ? sec : prim).push(p); } }); }); host.innerHTML = '';
     if (!all.length) { host.innerHTML = '<div class="empty">No data in this range</div>'; return; }
     var x0 = cfg.xMin != null ? cfg.xMin : Math.min.apply(null, all.map(function (p) { return p[0]; })), x1 = cfg.xMax != null ? cfg.xMax : Math.max.apply(null, all.map(function (p) { return p[0]; }));
@@ -430,7 +439,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     return { sx: sx, W: W, P: P };
   }
   function scatter(host, pr, xl, yl, xf, yf, onRead) {
-    var W = host.clientWidth || 340, H = 280, P = { l: 44, r: 10, t: 10, b: 30 }; host.innerHTML = '';
+    var W = host.clientWidth || 340, H = fitH(280), P = { l: 44, r: 10, t: 10, b: 30 }; host.innerHTML = '';
     if (pr.xs.length < 8) { host.innerHTML = '<div class="empty">Not enough overlapping data for this pair</div>'; return null; }
     var x0 = Math.min.apply(null, pr.xs), x1 = Math.max.apply(null, pr.xs), y0 = Math.min.apply(null, pr.ys), y1 = Math.max.apply(null, pr.ys), px = (x1 - x0) * .06 || 1, py = (y1 - y0) * .08 || 1; x0 -= px; x1 += px; y0 -= py; y1 += py;
     var sx = function (x) { return P.l + (x - x0) / (x1 - x0) * (W - P.l - P.r); }, sy = function (y) { return H - P.b - (y - y0) / (y1 - y0) * (H - P.t - P.b); };
