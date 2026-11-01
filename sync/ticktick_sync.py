@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Pull the TickTick habit "酒1杯" (one pint) check-ins and upsert them into Supabase.
+"""Pull TickTick habit check-ins and upsert them into Supabase.
+
+Habits: 酒1杯 (one pint) -> health_drinks; 禁ニコ (nicotine) and 禁煙 (smoking or vaping) -> health_habit_log.
 
 Environment:
   TICKTICK_TOKEN                        TickTick API token (web app: Settings > Account & Security > API Token)
   SUPABASE_URL, SUPABASE_SERVICE_KEY    Supabase project URL and service-role key
   TICKTICK_MCP_URL  default https://mcp.ticktick.com (TickTick's own MCP server, Streamable HTTP, Bearer token)
-  HABIT_NAME      default "酒1杯" (matched after width normalisation, so full-width digits also match)
-  HABIT_ID        optional; skips the name lookup
+  Habit names are matched after width normalisation, so full-width digits also match.
   START_DATE      first day to backfill (default 2025-11-27)
   REFRESH_DAYS    always re-fetch this many most recent days (default 14), because a day is
                   often ticked the following morning or edited later
@@ -72,6 +73,19 @@ def rows_from_checkins(checkins):
     return [out[d] for d in sorted(out)]
 
 
+QUIT_HABITS = [("禁ニコ", "nicotine"), ("禁煙", "smoking")]
+
+
+def quit_rows(checkins, key):
+    out = {}
+    for c in checkins:
+        if c.get("stamp") is None or c.get("status") not in (1, 2):
+            continue
+        d = stamp_to_date(c["stamp"])
+        out[d] = {"date": d, "habit": key, "failed": c["status"] == 1, "source": "ticktick"}
+    return [out[d] for d in sorted(out)]
+
+
 class Supa:
     def __init__(self, url, key):
         self.url = url.rstrip("/")
@@ -83,10 +97,16 @@ class Supa:
             raise SystemExit(f"Supabase read failed: {st} {js}")
         return js[0]["date"] if js else None
 
-    def upsert(self, rows):
+    def latest_habit_date(self, key):
+        st, js = http("GET", f"{self.url}/rest/v1/health_habit_log?select=date&habit=eq.{key}&order=date.desc&limit=1", self.h)
+        if st != 200:
+            raise SystemExit(f"Supabase read failed: {st} {js}")
+        return js[0]["date"] if js else None
+
+    def upsert(self, rows, table="health_drinks", conflict="date"):
         for i in range(0, len(rows), 200):
             h = dict(self.h, Prefer="resolution=merge-duplicates,return=minimal")
-            st, js = http("POST", f"{self.url}/rest/v1/health_drinks?on_conflict=date", h, rows[i:i + 200])
+            st, js = http("POST", f"{self.url}/rest/v1/{table}?on_conflict={conflict}", h, rows[i:i + 200])
             if st not in (200, 201, 204):
                 raise SystemExit(f"Supabase upsert failed: {st} {js}")
 
@@ -206,21 +226,37 @@ def main():
     token = os.environ["TICKTICK_TOKEN"]
     supa = Supa(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
     tt = TickTick(token, os.environ.get("TICKTICK_MCP_URL", "https://mcp.ticktick.com"))
-    hid = os.environ.get("HABIT_ID") or tt.habit_id(os.environ.get("HABIT_NAME", "酒1杯"))
-
     start = dt.date.fromisoformat(os.environ.get("START_DATE", "2025-11-27"))
     refresh = int(os.environ.get("REFRESH_DAYS", "14"))
-    latest = supa.latest_date()
-    d0 = start if latest is None else max(start, dt.date.fromisoformat(latest) - dt.timedelta(days=refresh))
     d1 = dt.date.today()
-    print(f"Fetching check-ins {d0} to {d1}", flush=True)
+
+    def window(latest):
+        return start if latest is None else max(start, dt.date.fromisoformat(latest) - dt.timedelta(days=refresh))
+
+    # one pint
+    hid = tt.habit_id("酒1杯")
+    d0 = window(supa.latest_date())
+    print(f"Pint habit: fetching {d0} to {d1}", flush=True)
     rows = rows_from_checkins(tt.checkins(hid, d0, d1))
-    if not rows:
-        print("No marked days returned in that range; nothing to write.")
-        return
-    supa.upsert(rows)
-    over = sum(r["over_pint"] for r in rows)
-    print(f"Upserted {len(rows)} days ({over} over a pint), {rows[0]['date']} to {rows[-1]['date']}", flush=True)
+    if rows:
+        supa.upsert(rows)
+        over = sum(r["over_pint"] for r in rows)
+        print(f"  upserted {len(rows)} days ({over} over a pint), {rows[0]['date']} to {rows[-1]['date']}", flush=True)
+    else:
+        print("  no marked days in that range", flush=True)
+
+    # quitting habits (failed = slipped that day)
+    for name, key in QUIT_HABITS:
+        hid = tt.habit_id(name)
+        d0 = window(supa.latest_habit_date(key))
+        print(f"{key}: fetching {d0} to {d1}", flush=True)
+        rows = quit_rows(tt.checkins(hid, d0, d1), key)
+        if rows:
+            supa.upsert(rows, "health_habit_log", "date,habit")
+            fails = sum(r["failed"] for r in rows)
+            print(f"  upserted {len(rows)} days ({fails} slips), {rows[0]['date']} to {rows[-1]['date']}", flush=True)
+        else:
+            print("  no marked days in that range", flush=True)
 
 
 if __name__ == "__main__":

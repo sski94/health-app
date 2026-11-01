@@ -276,6 +276,8 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'over_pint', l: 'Over a pint (1 = yes)', f: r0, sum: true, better: -1, g: 'Drinking' },
     { k: 'over_pint_7d', l: 'Days over a pint, last 7 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
     { k: 'over_pint_28d', l: 'Days over a pint, last 28 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
+    { k: 'days_nicotine_free', l: 'Days since nicotine (all forms)', u: 'days', f: r0, better: 1, g: 'Quitting' },
+    { k: 'days_smoke_free', l: 'Days since smoking or vaping', u: 'days', f: r0, better: 1, g: 'Quitting' },
     { k: 'mood', l: 'Mood', f: r1, better: 1, g: 'Check-in' },
     { k: 'stress', l: 'Stress', f: r1, better: -1, g: 'Check-in' },
     { k: 'energy', l: 'Energy', f: r1, better: 1, g: 'Check-in' }
@@ -284,7 +286,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'over_pint_7d', 'mood', 'stress', 'energy'];
 
   // ================= State =================
-  var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
+  var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, habits: {}, date: null, nightCache: {},
     trendKey: 'avg_hrv', trendCmp: '', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
     cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' }, actByDate: {} };
   try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; if (sv_.heatMode) S.heat.mode = sv_.heatMode; } catch (e) {}
@@ -342,6 +344,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     // rolling loads (only where every day in the window is covered)
     function roll(key, out, win, div) { for (var i = win - 1; i < S.dates.length; i++) { var s = 0, ok = true; for (var j = i - win + 1; j <= i; j++) { var v = S.D[S.dates[j]][key]; if (v == null) { ok = false; break; } s += v; } if (ok) S.D[S.dates[i]][out] = s / (div || 1); } }
     roll('run_km', 'run_km_7d', 7, 1); roll('run_km', 'run_km_28d', 28, 4); roll('ride_km', 'ride_km_7d', 7, 1); roll('active_min', 'active_min_7d', 7, 1);
+    // days since the last slip, counted from the first logged day (a lower bound if the real quit date was earlier)
+    [['nicotine', 'days_nicotine_free'], ['smoking', 'days_smoke_free']].forEach(function (hk) { var log = S.habits[hk[0]]; if (!log) return; var run = null, lastLogged = null;
+      S.dates.forEach(function (d) { var v = log[d]; if (v == null) { if (run != null && lastLogged != null && d <= S.dates[S.dates.length - 1]) { run = null; } return; } run = v ? 0 : (run == null ? 1 : run + 1); S.D[d][hk[1]] = run; lastLogged = d; }); });
     roll('over_pint', 'over_pint_7d', 7, 1); roll('over_pint', 'over_pint_28d', 28, 1);
   }
 
@@ -453,7 +458,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var sc = h('div', { class: 'scores' }); ['sleep_score', 'recovery_index', 'movement_index'].forEach(function (k) { var lv = band(r, k);
       var sp0 = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -45); }).map(function (x) { return S.D[x][k]; }), lv === 'none' ? 'var(--teal)' : COLORS[lv]);
       sc.appendChild(h('button', { class: 'card score', onclick: function () { S.trendKey = k; selectTab('trends'); } }, [h('div', { class: 'lbl' }, [MK[k].l]), h('div', { class: 'big num', style: 'color:' + (lv === 'none' ? 'var(--ink)' : COLORS[lv]) }, [r[k] == null ? '-' : String(r[k])]), h('div', { class: 'tag', html: dot(lv) + ' ' + esc(LABEL[lv] || '') }), h('div', { class: 'scorespark', html: sp0 })])); });
-    var keys = ['avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'bedtime', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'run_km_28d', 'mood', 'stress', 'energy'];
+    var keys = ['avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'bedtime', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'run_km_28d', 'over_pint_7d', 'days_smoke_free', 'days_nicotine_free', 'mood', 'stress', 'energy'];
     var g = h('div', { class: 'grid' }); keys.forEach(function (k) { var v = D[k]; if (v == null) return; var lv = band(r, k), m = MK[k], d = '', base = avg(S.dates.filter(function (x) { return x < S.date && x >= addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
       if (base != null && m.better) { var diff = v - base, pct = base ? diff / Math.abs(base) * 100 : 0; d = Math.abs(pct) >= 1 ? (diff > 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(0) + '% vs 30d' : '≈ 30d avg'; }
       var sp = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
@@ -828,11 +833,12 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   // ================= Data + shell =================
   function loadAll() {
     return Promise.all([supa.from('health_uh_daily').select('*').order('date', { ascending: true }).range(0, 4999), supa.from('health_activities').select('*').order('start_time', { ascending: false }).range(0, 4999),
-      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999), supa.from('health_drinks').select('*').range(0, 4999)]).then(function (rs) {
+      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999), supa.from('health_drinks').select('*').range(0, 4999), supa.from('health_habit_log').select('*').range(0, 9999)]).then(function (rs) {
       if (rs[0].error) throw rs[0].error; if (rs[1].error) throw rs[1].error;
       S.daily = rs[0].data || []; S.byDate = {}; S.daily.forEach(function (r) { S.byDate[r.date] = r; }); S.acts = rs[1].data || [];
       S.events = rs[2].error ? [] : (rs[2].data || []); S.checkins = {}; (rs[3].error ? [] : (rs[3].data || [])).forEach(function (c) { S.checkins[c.date] = c; });
       S.drinks = {}; (rs[4].error ? [] : (rs[4].data || [])).forEach(function (c) { S.drinks[c.date] = c.over_pint; });
+      S.habits = {}; (rs[5].error ? [] : (rs[5].data || [])).forEach(function (c) { (S.habits[c.habit] || (S.habits[c.habit] = {}))[c.date] = c.failed; });
       buildTable(); var withSleep = S.daily.filter(function (r) { return r.sleep_score != null; }); S.date = (withSleep.length ? withSleep[withSleep.length - 1] : S.daily[S.daily.length - 1] || {}).date || todayLocal();
       renderAll(); });
   }
