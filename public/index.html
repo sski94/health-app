@@ -71,7 +71,7 @@ select, input, textarea { font: inherit; color: var(--ink); background: var(--fi
 #tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: space-around;
   height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0)); padding-bottom: env(safe-area-inset-bottom, 0);
   background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--hair); }
-#tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--ink-3); font: 500 9px var(--font-num); letter-spacing: .04em; text-transform: uppercase; }
+#tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--ink-3); font: 500 8px var(--font-num); letter-spacing: .04em; text-transform: uppercase; }
 #tabs button.on { color: var(--ink); }
 #tabs svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #brand { display: none; }
@@ -136,6 +136,12 @@ table.t tr.click:hover td { background: var(--fill); }
 #detail .inner { max-width: 780px; margin: 0 auto; padding: 10px 12px calc(30px + env(safe-area-inset-bottom, 0)); }
 .signout { color: var(--ink-3); font: 500 11px var(--font-num); letter-spacing: .05em; text-transform: uppercase; padding: 16px 2px; }
 .x { color: var(--ink-3); font-size: 16px; padding: 0 6px; }
+.hscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.hscroll svg { display: block; touch-action: pan-x pan-y; }
+svg.hm text { font-family: var(--font-num); font-size: 9.5px; fill: var(--c-axis); }
+svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; font-size: 9px; }
+.swatches { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 8px 3px 2px; font: 400 11px var(--font); color: var(--ink-soft); }
+.swatches i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
 
 /* desktop: left rail, wide pages, multi-column grids */
 @media (min-width: 900px) {
@@ -179,6 +185,7 @@ table.t tr.click:hover td { background: var(--fill); }
   <section class="page" id="p-sleep"></section>
   <section class="page" id="p-trends"></section>
   <section class="page" id="p-compare"></section>
+  <section class="page" id="p-heat"></section>
   <section class="page" id="p-activity"></section>
   <section class="page" id="p-log"></section>
   <nav id="tabs">
@@ -187,6 +194,7 @@ table.t tr.click:hover td { background: var(--fill); }
     <button data-tab="sleep"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Sleep</button>
     <button data-tab="trends"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/></svg>Trends</button>
     <button data-tab="compare"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="2"/><circle cx="16" cy="9" r="2"/><circle cx="11" cy="16" r="2"/><circle cx="18" cy="17" r="1.5"/><path d="M3 21V3"/><path d="M3 21h18"/></svg>Compare</button>
+    <button data-tab="heat"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Heatmap</button>
     <button data-tab="activity"><svg viewBox="0 0 24 24"><path d="M13 4a1.5 1.5 0 1 0 0 .01M6 21l3-6 3 2 2-5-3-2-3 2-3-1M14 12l4 2"/></svg>Activity</button>
     <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Log</button>
   </nav>
@@ -274,7 +282,7 @@ table.t tr.click:hover td { background: var(--fill); }
   // ================= State =================
   var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, date: null, nightCache: {},
     trendKey: 'avg_hrv', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
-    cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60 };
+    cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' } };
   try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; } catch (e) {}
   function savePrefs() { try { localStorage.setItem('health.prefs', JSON.stringify({ sm: S.sm, showEvents: S.showEvents })); } catch (e) {} }
 
@@ -332,9 +340,12 @@ table.t tr.click:hover td { background: var(--fill); }
 
   // ================= Series, smoothing, stats =================
   function series(k) { var out = []; S.dates.forEach(function (d) { var v = S.D[d][k]; if (v != null) out.push([dayNum(d), v]); }); return out; }
-  function smoothPts(pts, w) { if (w <= 1 || !pts.length) return pts; var half = Math.floor(w / 2), out = [], lo = 0, hi = 0;
-    for (var i = 0; i < pts.length; i++) { while (pts[lo][0] < pts[i][0] - half) lo++; while (hi < pts.length && pts[hi][0] <= pts[i][0] + half) hi++;
-      var s = 0, c = 0; for (var j = lo; j < hi; j++) { s += pts[j][1]; c++; } out.push([pts[i][0], c >= Math.min(3, Math.ceil(w / 4)) ? s / c : null]); } return out; }
+  // Gaussian-weighted rolling mean. w is the effective window in days (full width at half maximum), any positive number,
+  // so the curve changes continuously as the slider moves. Below about 1.5 days the series is left as it is.
+  function smoothPts(pts, w) { if (w < 1.5 || !pts.length) return pts; var sg = w / 2.355, reach = Math.ceil(sg * 3), out = [], lo = 0;
+    for (var i = 0; i < pts.length; i++) { while (pts[lo][0] < pts[i][0] - reach) lo++; var num = 0, den = 0;
+      for (var j = lo; j < pts.length && pts[j][0] <= pts[i][0] + reach; j++) { var dx = pts[j][0] - pts[i][0], wt = Math.exp(-0.5 * dx * dx / (sg * sg)); num += wt * pts[j][1]; den += wt; }
+      out.push([pts[i][0], den > 0 ? num / den : null]); } return out; }
   function inRange(pts, days) { if (!days || !pts.length) return pts; var cut = pts[pts.length - 1][0] - days; return pts.filter(function (p) { return p[0] >= cut; }); }
   function pearson(xs, ys) { var n = xs.length; if (n < 8) return null; var mx = avg(xs), my = avg(ys), sxy = 0, sxx = 0, syy = 0; for (var i = 0; i < n; i++) { var a = xs[i] - mx, b = ys[i] - my; sxy += a * b; sxx += a * a; syy += b * b; } return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null; }
   function regress(xs, ys) { var mx = avg(xs), my = avg(ys), sxy = 0, sxx = 0; for (var i = 0; i < xs.length; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) * (xs[i] - mx); } var b = sxx ? sxy / sxx : 0; return { b: b, a: my - b * mx }; }
@@ -405,13 +416,17 @@ table.t tr.click:hover td { background: var(--fill); }
     vals.forEach(function (x, i) { if (x == null) return; d += (d ? 'L' : 'M') + (i / (vals.length - 1) * W).toFixed(1) + ' ' + (H - 2 - (x - lo) / ((hi - lo) || 1) * (H - 4)).toFixed(1); });
     return '<svg class="spark" viewBox="0 0 64 20"><path d="' + d + '" fill="none" stroke="' + (color || 'var(--teal)') + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
   function chartCard(title, legendHtml) { var read = h('div', { class: 'read num' }), host = h('div'), c = h('div', { class: 'card chartcard' }, [h('div', { class: 'top' }, [h('span', { class: 'lbl' }, [title]), read]), host]);
-    if (legendHtml) c.appendChild(h('div', { class: 'legend', html: legendHtml })); c.read = read; c.host = host; return c; }
+    c.legend = h('div', { class: 'legend', html: legendHtml || '' }); if (legendHtml) c.appendChild(c.legend); c.read = read; c.host = host; return c; }
   function evMarkers() { return S.showEvents ? S.events.map(function (e) { return { x: dayNum(e.date), label: e.label }; }) : []; }
-  var SM_STEPS = [1, 3, 7, 14, 30, 60, 90, 180];
-  function smoothName(w) { return w === 1 ? 'Daily' : w + '-day trend'; }
-  function smoothCtl(onChange) { var val = h('span', { class: 'val' }, [smoothName(S.sm)]), idx = Math.max(0, SM_STEPS.indexOf(S.sm)),
-      rng = h('input', { type: 'range', min: 0, max: SM_STEPS.length - 1, step: 1, value: idx }), ev = h('input', { type: 'checkbox' });
-    ev.checked = S.showEvents; rng.addEventListener('input', function () { S.sm = SM_STEPS[+rng.value]; val.textContent = smoothName(S.sm); savePrefs(); onChange(); });
+  var SM_MAX = 180;
+  function smoothName(w) { return w < 1.5 ? 'Daily' : '~' + Math.round(w) + '-day trend'; }
+  // The slider is continuous and logarithmic: left is the raw daily points, right is a ~180-day trend.
+  // onChange must only redraw the charts (not rebuild this control), so dragging stays smooth.
+  function smoothCtl(onChange) { var val = h('span', { class: 'val' }, [smoothName(S.sm)]), t0 = Math.round(Math.log(Math.max(1, S.sm)) / Math.log(SM_MAX) * 1000),
+      rng = h('input', { type: 'range', min: 0, max: 1000, step: 1, value: t0, 'aria-label': 'Detail level' }), ev = h('input', { type: 'checkbox' }), pending = false;
+    ev.checked = S.showEvents;
+    rng.addEventListener('input', function () { S.sm = Math.pow(SM_MAX, +rng.value / 1000); val.textContent = smoothName(S.sm); if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; onChange(); }); } });
+    rng.addEventListener('change', savePrefs);
     ev.addEventListener('change', function () { S.showEvents = ev.checked; savePrefs(); onChange(); });
     return h('div', { class: 'card ctl' }, [h('span', { class: 'lbl' }, ['Detail']), h('span', { class: 'sub' }, ['points']), rng, h('span', { class: 'sub' }, ['trend']), val,
       h('label', { class: 'sub', style: 'display:flex;align-items:center;gap:6px;margin-left:8px' }, [ev, 'Events'])]); }
@@ -476,15 +491,18 @@ table.t tr.click:hover td { background: var(--fill); }
     sel.addEventListener('change', function () { S.trendKey = sel.value; renderTrends(); });
     var top = h('div', { class: 'card ctl' }, [h('div', { style: 'flex:1;min-width:200px' }, [sel])]);
     [[30, '30D'], [90, '90D'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (S.range === a[0] ? ' on' : ''), onclick: function () { S.range = a[0]; renderTrends(); } }, [a[1]])); }); p.appendChild(top);
-    p.appendChild(smoothCtl(renderTrends));
+    var paint; p.appendChild(smoothCtl(function () { paint(); }));
     var cols = h('div', { class: 'cols side' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
-    var raw = inRange(series(k), S.range), sm = smoothPts(series(k), S.sm), cut = raw.length ? raw[0][0] : 0, smr = sm.filter(function (q) { return q[0] >= cut; });
+    var raw = inRange(series(k), S.range), cut = raw.length ? raw[0][0] : 0;
     var bands = []; if (k === 'sleep_score' || k === 'recovery_index' || k === 'movement_index') bands = [{ from: SCORE_BANDS.optimal, to: 100, color: 'var(--opt)', op: .13 }, { from: SCORE_BANDS.good, to: SCORE_BANDS.optimal, color: 'var(--good)', op: .13 }, { from: 0, to: SCORE_BANDS.good, color: 'var(--bad)', op: .1 }];
-    var c = chartCard(m.l, '<span><i style="background:var(--ink-3)"></i>Daily</span><span><i style="background:var(--teal)"></i>' + smoothName(S.sm) + '</span>' + (S.showEvents && S.events.length ? '<span><i style="background:var(--accent2)"></i>Event</span>' : '')); left.appendChild(c);
+    var legendHtml = function () { return '<span><i style="background:var(--ink-3)"></i>Daily</span>' + (S.sm >= 1.5 ? '<span><i style="background:var(--teal)"></i>' + smoothName(S.sm) + '</span>' : '') + (S.showEvents && S.events.length ? '<span><i style="background:var(--accent2)"></i>Event</span>' : ''); };
+    var c = chartCard(m.l, legendHtml()); left.appendChild(c);
     var fmtv = function (v) { return m.f === hm || m.f === clock ? m.f(v) : String(m.f === r0 ? r0(v) : r1(v)); };
-    lineChart(c.host, { h: 300, series: [{ pts: raw, color: 'var(--ink-3)', width: 1, dots: S.sm > 1, noLine: S.sm > 1, opacity: .8 }, { pts: S.sm > 1 ? smr : [], color: 'var(--teal)', width: 2.6 }], bands: bands, markers: evMarkers(), xFmt: fmtShort,
-      yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: function (v) { return m.f === hm ? Math.round(v / 60 * 10) / 10 + 'h' : m.f === clock ? clock(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); },
-      readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }); c.read.textContent = fmtShort(x) + '  ' + fmtv(y) + (S.sm > 1 && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : ''); } });
+    paint = function () { var sm = smoothPts(series(k), S.sm), smr = sm.filter(function (q) { return q[0] >= cut; }), on = S.sm >= 1.5; c.legend.innerHTML = legendHtml();
+      lineChart(c.host, { h: 300, series: [{ pts: raw, color: 'var(--ink-3)', width: 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }], bands: bands, markers: evMarkers(), xFmt: fmtShort,
+        yMin: bands.length ? 0 : undefined, yMax: bands.length ? 100 : undefined, yFmt: function (v) { return m.f === hm ? Math.round(v / 60 * 10) / 10 + 'h' : m.f === clock ? clock(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); },
+        readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }); c.read.textContent = fmtShort(x) + '  ' + fmtv(y) + (on && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : ''); } }); };
+    paint();
     var vals = raw.map(function (q) { return q[1]; });
     if (vals.length) { var g = h('div', { class: 'stats' }); [['Average', avg(vals)], ['Best', m.better === -1 ? Math.min.apply(null, vals) : Math.max.apply(null, vals)], ['Lowest', m.better === -1 ? Math.max.apply(null, vals) : Math.min.apply(null, vals)], ['Latest', vals[vals.length - 1]], ['Days', vals.length], ['Std dev', sd(vals)]].forEach(function (a) {
       g.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [a[0]]), h('div', { class: 'v' }, [a[1] == null ? '-' : a[0] === 'Days' ? String(a[1]) : a[0] === 'Std dev' ? r1(a[1]) : fmtv(a[1])])])); }); left.appendChild(g); }
@@ -512,18 +530,21 @@ table.t tr.click:hover td { background: var(--fill); }
     var md = h('select', {}); [['daily', 'Day by day'], ['weekly', 'Week by week']].forEach(function (a) { var o = h('option', { value: a[0] }, [a[1]]); if (C.mode === a[0]) o.selected = true; md.appendChild(o); }); md.addEventListener('change', function () { C.mode = md.value; C.lag = Math.min(C.lag, md.value === 'weekly' ? 2 : 7); renderCompare(); });
     var lg = h('select', {}); (wk ? [0, 1, 2] : [0, 1, 2, 3, 5, 7]).forEach(function (v) { var o = h('option', { value: v }, [v === 0 ? 'Same ' + (wk ? 'week' : 'day') : 'Y is ' + v + (wk ? ' week' : ' day') + (v > 1 ? 's' : '') + ' after X']); if (C.lag === v) o.selected = true; lg.appendChild(o); }); lg.addEventListener('change', function () { C.lag = +lg.value; renderCompare(); });
     ctl.appendChild(h('div', { class: 'formrow' }, [h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Compare']), md]), h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Timing']), lg])])); p.appendChild(ctl);
-    p.appendChild(smoothCtl(renderCompare));
+    var paintT; p.appendChild(smoothCtl(function () { paintT(); }));
     var cols = h('div', { class: 'cols c2' }); p.appendChild(cols); var pr = pairs(C.x, C.y, C.mode, C.lag), left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
     var sc = chartCard(my.l + ' against ' + mx.l.toLowerCase()); left.appendChild(sc); var rg = scatter(sc.host, pr, mx.l + (mx.u ? ' (' + mx.u + ')' : ''), my.l + (my.u ? ' (' + my.u + ')' : ''), function (v) { return mx.f === hm || mx.f === clock ? mx.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (v) { return my.f === hm || my.f === clock ? my.f(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }, function (t) { sc.read.textContent = t; });
     var rr = pearson(pr.xs, pr.ys); left.appendChild(h('div', { class: 'card', style: 'margin-bottom:10px' }, [h('div', { style: 'font-size:13px;line-height:1.5' }, [rText(rr, pr.xs.length) + (rg && rr != null ? ' Slope: each +1 ' + (mx.u || 'unit') + ' in X goes with ' + (rg.b >= 0 ? '+' : '') + Number(rg.b.toFixed(3)) + ' ' + (my.u || 'units') + ' in Y.' : '')]),
       h('div', { class: 'sub', style: 'margin-top:6px' }, ['Look for things that changed together: sleep timing, alcohol, training, stress and life events can all move HRV at once.'])]));
     // timeline z-scores
-    var s1 = smoothPts(series(C.x), wk ? Math.max(S.sm, 7) : S.sm), s2 = smoothPts(series(C.y), wk ? Math.max(S.sm, 7) : S.sm);
+    // timeline z-scores
     function z(pts) { var v = pts.map(function (q) { return q[1]; }).filter(function (x) { return x != null; }), m_ = avg(v), s_ = sd(v, m_) || 1; return pts.map(function (q) { return [q[0], q[1] == null ? null : (q[1] - m_) / s_]; }); }
     var tc = chartCard('Over time, in standard deviations from each one\'s own average', '<span><i style="background:var(--accent2)"></i>' + esc(mx.l) + '</span><span><i style="background:var(--teal)"></i>' + esc(my.l) + '</span><span><i style="background:var(--ink-3)"></i>Event</span>'); right.appendChild(tc);
-    var z1 = z(s1), z2 = z(s2); var cut = Math.max(z1.length ? z1[0][0] : 0, z2.length ? z2[0][0] : 0);
+    paintT = function () {
+    var s1 = smoothPts(series(C.x), wk ? Math.max(S.sm, 7) : S.sm), s2 = smoothPts(series(C.y), wk ? Math.max(S.sm, 7) : S.sm), z1 = z(s1), z2 = z(s2), cut = Math.max(z1.length ? z1[0][0] : 0, z2.length ? z2[0][0] : 0);
     lineChart(tc.host, { h: 280, series: [{ pts: z1.filter(function (q) { return q[0] >= cut; }), color: 'var(--accent2)', width: 2 }, { pts: z2.filter(function (q) { return q[0] >= cut; }), color: 'var(--teal)', width: 2.2 }], markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return (v > 0 ? '+' : '') + v.toFixed(1); },
       readout: function (x, y) { var a = z1.find(function (q) { return q[0] === x; }), b = z2.find(function (q) { return q[0] === x; }); tc.read.textContent = fmtShort(x) + '  X ' + (a && a[1] != null ? a[1].toFixed(1) : '-') + '   Y ' + (b && b[1] != null ? b[1].toFixed(1) : '-'); } });
+    };
+    paintT();
     // drivers
     var dc = h('div', { class: 'card', style: 'margin-bottom:10px' }, [h('div', { class: 'lbl', style: 'margin-bottom:2px' }, ['What goes with ' + my.l.toLowerCase()]), h('div', { class: 'sub', style: 'margin-bottom:6px' }, ['Day by day, X on the same day or the day before. Tap a row to explore it.'])]);
     var dr = []; MET.forEach(function (x) { if (x.k === C.y) return; [0, 1].forEach(function (lag) { var q = pairs(x.k, C.y, 'daily', lag); if (q.xs.length < 60) return; var r_ = pearson(q.xs, q.ys); if (r_ != null) dr.push({ k: x.k, lag: lag, r: r_, n: q.xs.length }); }); });
@@ -548,6 +569,83 @@ table.t tr.click:hover td { background: var(--fill); }
     ec.appendChild(h('div', { class: 'note' }, ['An effect of 0.2 is small, 0.5 medium, 0.8 large. A change after an event is not proof the event caused it: sleep timing, alcohol, training and season may have shifted too, so check those rows as well.']));
   }
 
+
+  // ================= Heatmap =================
+  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'mood', 'stress', 'energy'];
+  var BANDED = ['sleep_score', 'recovery_index', 'movement_index', 'total_sleep_min', 'time_in_bed_min', 'restorative_pct', 'efficiency', 'temp_dev_c'];
+  // z is the distance from the measure's own average in standard deviations. better: 1 high is good, -1 high is bad, otherwise neutral.
+  function heatFill(z, better) { var a = Math.min(1, 0.12 + Math.abs(z) / 2.2 * 0.88);
+    if (better === 1) return z >= 0 ? ['var(--opt)', a] : ['var(--bad)', a];
+    if (better === -1) return z >= 0 ? ['var(--bad)', a] : ['var(--opt)', a];
+    return z >= 0 ? ['var(--teal)', a] : ['var(--accent2)', a]; }
+  function weekCols(range) { var last = dayNum(S.dates[S.dates.length - 1]), first = dayNum(S.dates[0]), startN = range ? Math.max(first, last - range) : first, firstMon = startN - ((startN + 3) % 7), lastMon = last - ((last + 3) % 7), cols = [];
+    for (var n = firstMon; n <= lastMon; n += 7) cols.push(n); return cols; }
+  function monthTag(n) { return new Date(n * 864e5).toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' }); }
+  function heatEventLines(svg, cols, x0, cw, y0, y1) { if (!S.showEvents) return;
+    S.events.forEach(function (e) { var f = (dayNum(e.date) - cols[0]) / 7; if (f < 0 || f >= cols.length) return; var x = x0 + f * cw;
+      sv('line', { x1: x, x2: x, y1: y0, y2: y1, stroke: 'var(--accent2)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, svg);
+      var t = sv('text', { x: x + 3, y: y0 - 2, class: 'ev' }, svg); t.textContent = e.label.length > 22 ? e.label.slice(0, 21) + '…' : e.label; }); }
+  function renderHeat() {
+    var p = $('p-heat'), HS = S.heat; p.innerHTML = '';
+    p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Heatmap']), h('div', { class: 'sub' }, ['Everything over time at a glance. Green is better than your usual, pink is worse.'])])]));
+    var top = h('div', { class: 'card ctl' });
+    [[90, '3M'], [180, '6M'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (HS.range === a[0] ? ' on' : ''), onclick: function () { HS.range = a[0]; renderHeat(); } }, [a[1]])); });
+    var evBox = h('input', { type: 'checkbox', style: 'width:auto' }); evBox.checked = S.showEvents; evBox.addEventListener('change', function () { S.showEvents = evBox.checked; savePrefs(); renderHeat(); });
+    top.appendChild(h('label', { class: 'sub', style: 'display:flex;align-items:center;gap:6px;margin-left:auto' }, [evBox, 'Events'])); p.appendChild(top);
+    var cols = weekCols(HS.range); if (!cols.length) { p.appendChild(h('div', { class: 'card empty' }, ['No data yet.'])); return; }
+
+    // --- overview: rows are measures, columns are weeks
+    var oc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), oread = h('div', { class: 'read num' }), owrap = h('div', { class: 'hscroll' });
+    oc.appendChild(h('div', { class: 'top' }, [h('span', { class: 'lbl' }, ['All measures, week by week']), oread])); var obody = h('div', { style: 'display:flex;align-items:flex-start' }), olab = h('div', { style: 'flex:none' }); owrap.style.flex = '1'; owrap.style.minWidth = '0'; obody.appendChild(olab); obody.appendChild(owrap); oc.appendChild(obody); p.appendChild(oc);
+    var rows = HEAT_ROWS.filter(function (k) { return S.dates.some(function (d) { return S.D[d][k] != null; }); });
+    var labelW = 118, topPad = 28, rh = 21, Hd = topPad + rows.length * rh + 4; olab.style.width = labelW + 'px'; var avail = owrap.clientWidth || 240, cw = Math.max(9, Math.floor(avail / cols.length)), Wd = cw * cols.length + 4;
+    var lsvg = sv('svg', { viewBox: '0 0 ' + labelW + ' ' + Hd, width: labelW, height: Hd, class: 'hm' }); olab.appendChild(lsvg);
+    var svg = sv('svg', { viewBox: '0 0 ' + Wd + ' ' + Hd, width: Wd, height: Hd, class: 'hm' }); owrap.appendChild(svg); var info = [];
+    var lastMonth = '', lastX = -99;
+    cols.forEach(function (n, ci) { var tg = monthTag(n), x = ci * cw; if (tg !== lastMonth && x - lastX > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lastX = x; } lastMonth = tg; });
+    rows.forEach(function (k, ri) {
+      var m = MK[k], vals = cols.map(function (n) { var a = []; for (var i = 0; i < 7; i++) { var v = (S.D[dayStr(n + i)] || {})[k]; if (v != null) a.push(v); } return a.length >= 3 ? avg(a) : null; });
+      var vv = vals.filter(function (x) { return x != null; }), mu = avg(vv), sg = sd(vv, mu) || 1, tx = sv('text', { x: labelW - 8, y: topPad + ri * rh + rh / 2 + 3, 'text-anchor': 'end' }, lsvg);
+      tx.textContent = m.l.length > 19 ? m.l.slice(0, 18) + '…' : m.l; info[ri] = [];
+      vals.forEach(function (v, ci) { var z = v == null ? 0 : (v - mu) / sg, f = v == null ? ['var(--fill)', 1] : heatFill(z, m.better);
+        sv('rect', { x: ci * cw, y: topPad + ri * rh + 1, width: cw - 1, height: rh - 2, rx: 2.5, fill: f[0], 'fill-opacity': f[1] }, svg); info[ri][ci] = { n: cols[ci], v: v, z: z }; }); });
+    heatEventLines(svg, cols, 0, cw, topPad - 2, Hd - 3);
+    var hov = sv('rect', { width: cw - 1, height: rh - 2, rx: 2.5, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg);
+    var move = function (ev) { var r = svg.getBoundingClientRect(), sc = Wd / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * sc, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * sc,
+        ci = Math.floor(x / cw), ri = Math.floor((y - topPad) / rh);
+      if (ci < 0 || ci >= cols.length || ri < 0 || ri >= rows.length) { hov.setAttribute('opacity', 0); return; } var c = info[ri][ci]; hov.setAttribute('x', ci * cw); hov.setAttribute('y', topPad + ri * rh + 1); hov.setAttribute('opacity', 1);
+      oread.textContent = 'w/c ' + fmtShort(c.n) + '  ' + MK[rows[ri]].l + '  ' + (c.v == null ? 'no data' : fmtMetric(rows[ri], c.v) + '  (' + (c.z >= 0 ? '+' : '') + c.z.toFixed(1) + ' sd)'); };
+    svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); setTimeout(function () { owrap.scrollLeft = owrap.scrollWidth; }, 0);
+    oc.appendChild(h('div', { class: 'swatches', html: '<span>worse than usual</span><i style="background:var(--bad);opacity:.9"></i><i style="background:var(--bad);opacity:.5"></i><i style="background:var(--fill)"></i><i style="background:var(--opt);opacity:.5"></i><i style="background:var(--opt);opacity:.9"></i><span>better than usual</span><span style="margin-left:10px">Each row is compared with its own average over the period shown. Grey means no data.</span>' }));
+
+    // --- calendar: one measure, day by day
+    var key = HS.key, mk = MK[key], cc = h('div', { class: 'card chartcard' }), cread = h('div', { class: 'read num' }), cwrap = h('div', { class: 'hscroll' });
+    var sel = metricSelect(key, function (v) { HS.key = v; renderHeat(); }); sel.style.maxWidth = '260px';
+    var modeChips = h('div', { class: 'chips', style: 'margin:0' });
+    if (BANDED.indexOf(key) >= 0) [['bands', 'Ultrahuman bands'], ['relative', 'Relative to my usual']].forEach(function (a) { modeChips.appendChild(h('button', { class: 'chip' + (HS.mode === a[0] ? ' on' : ''), onclick: function () { HS.mode = a[0]; renderHeat(); } }, [a[1]])); });
+    cc.appendChild(h('div', { class: 'top', style: 'align-items:center;flex-wrap:wrap;margin-bottom:8px' }, [h('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, [h('span', { class: 'lbl' }, ['Calendar']), sel, modeChips]), cread]));
+    var cbody = h('div', { style: 'display:flex;align-items:flex-start' }), clab = h('div', { style: 'flex:none' }); cwrap.style.flex = '1'; cwrap.style.minWidth = '0'; cbody.appendChild(clab); cbody.appendChild(cwrap); cc.appendChild(cbody); p.appendChild(cc);
+    var useBands = BANDED.indexOf(key) >= 0 && HS.mode === 'bands', cs = 13, gp = 2, lw = 30, tp = 22, lastDay = dayNum(S.dates[S.dates.length - 1]), W2 = cols.length * (cs + gp) + 4, H2 = tp + 7 * (cs + gp) + 2; clab.style.width = lw + 'px';
+    var lsvg2 = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H2, width: lw, height: H2, class: 'hm' }); clab.appendChild(lsvg2);
+    var svg2 = sv('svg', { viewBox: '0 0 ' + W2 + ' ' + H2, width: W2, height: H2, class: 'hm' }); cwrap.appendChild(svg2);
+    var dv = []; cols.forEach(function (n) { for (var i = 0; i < 7; i++) { var v = (S.D[dayStr(n + i)] || {})[key]; if (v != null) dv.push(v); } });
+    var mu2 = avg(dv), sg2 = sd(dv, mu2) || 1, cells = [];
+    ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach(function (t, i) { if (!t) return; var tx = sv('text', { x: lw - 6, y: tp + i * (cs + gp) + cs - 2, 'text-anchor': 'end' }, lsvg2); tx.textContent = t; });
+    var lm = '', lx = -99; cols.forEach(function (n, ci) { var tg = monthTag(n + 3), x = ci * (cs + gp); if (tg !== lm && x - lx > 46) { var t = sv('text', { x: x, y: 10 }, svg2); t.textContent = tg; lx = x; } lm = tg; });
+    cols.forEach(function (n, ci) { for (var i = 0; i < 7; i++) { var d = dayStr(n + i), v = (S.D[d] || {})[key], f; if (n + i > lastDay || !S.D[d]) continue;
+      if (v == null) f = ['var(--fill)', 1]; else if (useBands) { var lv = band(S.byDate[d] || {}, key); f = lv === 'none' ? ['var(--fill)', 1] : [COLORS[lv], 1]; } else f = heatFill((v - mu2) / sg2, mk.better);
+      sv('rect', { x: ci * (cs + gp), y: tp + i * (cs + gp), width: cs, height: cs, rx: 3, fill: f[0], 'fill-opacity': f[1] }, svg2); cells.push({ x: ci * (cs + gp), y: tp + i * (cs + gp), d: d, v: v }); } });
+    heatEventLines(svg2, cols, 0, cs + gp, tp - 2, H2 - 2);
+    var hov2 = sv('rect', { width: cs, height: cs, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg2);
+    var move2 = function (ev) { var r = svg2.getBoundingClientRect(), sc = W2 / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * sc, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * sc, ci = Math.floor(x / (cs + gp)), ri = Math.floor((y - tp) / (cs + gp));
+      var c = cells.find(function (q) { return q.x === ci * (cs + gp) && q.y === tp + ri * (cs + gp); }); if (!c) { hov2.setAttribute('opacity', 0); return; } hov2.setAttribute('x', c.x); hov2.setAttribute('y', c.y); hov2.setAttribute('opacity', 1);
+      var lv = useBands && c.v != null ? band(S.byDate[c.d] || {}, key) : 'none'; cread.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no data' : fmtMetric(key, c.v) + (lv !== 'none' ? '  ' + LABEL[lv] : '')); };
+    svg2.addEventListener('pointermove', move2); svg2.addEventListener('pointerdown', move2); setTimeout(function () { cwrap.scrollLeft = cwrap.scrollWidth; }, 0);
+    cc.appendChild(h('div', { class: 'swatches', html: useBands ? '<i style="background:var(--opt)"></i>Optimal<i style="background:var(--good)"></i>Good<i style="background:var(--bad)"></i>Needs attention<i style="background:var(--fill)"></i>No data or no band'
+      : '<span>worse than usual</span><i style="background:var(--bad);opacity:.9"></i><i style="background:var(--bad);opacity:.5"></i><i style="background:var(--fill)"></i><i style="background:var(--opt);opacity:.5"></i><i style="background:var(--opt);opacity:.9"></i><span>better than usual</span>' + (mk.better ? '' : '<span style="margin-left:10px">No better or worse direction for this measure: teal is high, orange is low.</span>') }));
+  }
+
+
   // ================= Activity =================
   function weekly(key) { var W = {}; S.dates.forEach(function (d) { var n = dayNum(d), mon = n - ((n + 3) % 7), v = S.D[d][key]; if (v == null) return; (W[mon] || (W[mon] = { s: 0, c: 0 })); W[mon].s += v; W[mon].c++; });
     return Object.keys(W).map(Number).sort(function (a, b) { return a - b; }).filter(function (n) { return W[n].c === 7 || n + 6 > dayNum(S.dates[S.dates.length - 1]); }).map(function (n) { return [n, W[n].s]; }); }
@@ -559,7 +657,7 @@ table.t tr.click:hover td { background: var(--fill); }
     var yr = runs.filter(function (a) { return a.start_time >= (new Date().getFullYear() - 0) + '-01-01'; }).reduce(function (s, a) { return s + (a.distance_m || 0); }, 0) / 1000;
     var st = h('div', { class: 'stats' }); [['Runs', runs.length], ['Run km this year', r1(yr)], ['Longest run', (longest / 1000).toFixed(1) + ' km'], ['Km per week (28d)', r28 != null ? r1(r28) : '-'], ['Rides', S.acts.filter(function (a) { return sportKind(a) === 'ride'; }).length], ['All km', r0(S.acts.reduce(function (s, a) { return s + (a.distance_m || 0); }, 0) / 1000)]].forEach(function (a) {
       st.appendChild(h('div', { class: 'card stat' }, [h('div', { class: 'lbl' }, [a[0]]), h('div', { class: 'v' }, [String(a[1])])])); }); p.appendChild(st);
-    p.appendChild(smoothCtl(renderActivity));
+    var paintW; p.appendChild(smoothCtl(function () { paintW(); }));
     var cols = h('div', { class: 'cols act' }); p.appendChild(cols); var left = h('div'), right = h('div'); cols.appendChild(left); cols.appendChild(right);
     var detailHost = h('div'); right.appendChild(detailHost);
     var chips = h('div', { class: 'chips' }); Object.keys(SPORT).forEach(function (k) { chips.appendChild(h('button', { class: 'chip' + (S.sport === k ? ' on' : ''), onclick: function () { S.sport = k; renderActivity(); } }, [SPORT[k]])); }); left.appendChild(chips);
@@ -570,10 +668,13 @@ table.t tr.click:hover td { background: var(--fill); }
         h('div', { class: 'm' }, [ride ? ((a.distance_m / 1000) / (a.moving_time_s / 3600)).toFixed(1) + ' km/h' : (a.moving_time_s && a.distance_m ? paceStr(a.moving_time_s / (a.distance_m / 1000)) + ' /km' : '-') + (a.avg_hr ? ' · ' + Math.round(a.avg_hr) + ' bpm' : '')])])); });
     if (!list.length) left.appendChild(h('div', { class: 'card empty' }, ['No activities yet.']));
     // right: charts
-    var wr = weekly('run_km'), wd = weekly('ride_km'), w = Math.max(1, Math.round(S.sm / 7)), sw = function (pts) { if (w <= 1) return pts; return pts.map(function (q, i) { var s = pts.slice(Math.max(0, i - Math.floor(w / 2)), i + Math.ceil(w / 2)).map(function (z) { return z[1]; }); return [q[0], avg(s)]; }); };
-    var wc = chartCard('Weekly distance (km)', '<span><i style="background:var(--teal)"></i>Running</span><span><i style="background:var(--accent2)"></i>Riding</span>' + (w > 1 ? '<span>smoothed over ~' + w + ' weeks</span>' : '')); right.appendChild(wc);
-    lineChart(wc.host, { h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: w > 1, noLine: w > 1, opacity: .7 }, { pts: w > 1 ? sw(wd) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: w > 1, noLine: w > 1, opacity: .7 }, { pts: w > 1 ? sw(wr) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
-      readSeries: 2, readout: function (x, y) { var b = wd.find(function (q) { return q[0] === x; }); wc.read.textContent = 'w/c ' + fmtShort(x) + '  run ' + r1(y) + ' km' + (b ? '  ride ' + r1(b[1]) + ' km' : ''); } });
+    var wr = weekly('run_km'), wd = weekly('ride_km');
+    var wLegend = function () { return '<span><i style="background:var(--teal)"></i>Running</span><span><i style="background:var(--accent2)"></i>Riding</span>' + (S.sm >= 1.5 ? '<span>' + smoothName(S.sm) + '</span>' : ''); };
+    var wc = chartCard('Weekly distance (km)', wLegend()); right.appendChild(wc);
+    paintW = function () { var on = S.sm >= 1.5; wc.legend.innerHTML = wLegend();
+      lineChart(wc.host, { h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wd, S.sm) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wr, S.sm) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
+        readSeries: 2, readout: function (x, y) { var b = wd.find(function (q) { return q[0] === x; }); wc.read.textContent = 'w/c ' + fmtShort(x) + '  run ' + r1(y) + ' km' + (b ? '  ride ' + r1(b[1]) + ' km' : ''); } }); };
+    paintW();
     var z2 = runs.filter(function (a) { return a.extra && a.extra.zone2_pace_s_km; }).sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; });
     var fc = chartCard('Pace at Zone 2 heart rate (' + Z2[0] + ' to ' + Z2[1] + ' bpm, running only)', '<span>Higher on the chart is faster. Each point is one run.</span>'); right.appendChild(fc);
     var zp = z2.map(function (a) { return [dayNum(localDate(a.start_time)), -a.extra.zone2_pace_s_km]; });
@@ -641,9 +742,9 @@ table.t tr.click:hover td { background: var(--fill); }
       buildTable(); var withSleep = S.daily.filter(function (r) { return r.sleep_score != null; }); S.date = (withSleep.length ? withSleep[withSleep.length - 1] : S.daily[S.daily.length - 1] || {}).date || todayLocal();
       renderAll(); });
   }
-  var RENDER = { today: renderToday, sleep: renderSleep, trends: renderTrends, compare: renderCompare, activity: renderActivity, log: renderLog };
+  var RENDER = { today: renderToday, sleep: renderSleep, trends: renderTrends, compare: renderCompare, heat: renderHeat, activity: renderActivity, log: renderLog };
   function curTab() { var e = document.querySelector('.page.on'); return e ? e.id.slice(2) : 'today'; }
-  function renderAll() { renderToday(); renderSleep(); renderTrends(); renderCompare(); renderActivity(); renderLog(); }
+  function renderAll() { renderToday(); renderSleep(); renderTrends(); renderCompare(); renderHeat(); renderActivity(); renderLog(); }
   function selectTab(name) { document.querySelectorAll('.page').forEach(function (e) { e.classList.toggle('on', e.id === 'p-' + name); }); document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     if (S.daily.length) RENDER[name](); window.scrollTo(0, 0); }
   document.querySelectorAll('#tabs button').forEach(function (b) { b.addEventListener('click', function () { selectTab(b.getAttribute('data-tab')); }); });
