@@ -2,9 +2,9 @@
 """Pull the TickTick habit "酒1杯" (one pint) check-ins and upsert them into Supabase.
 
 Environment:
-  TICKTICK_TOKEN                        Bearer token for the TickTick Open API
+  TICKTICK_TOKEN                        TickTick API token (web app: Settings > Account & Security > API Token)
   SUPABASE_URL, SUPABASE_SERVICE_KEY    Supabase project URL and service-role key
-  TICKTICK_HOST   default https://api.ticktick.com (use https://api.dida365.com for Dida365)
+  TICKTICK_MCP_URL  default https://mcp.ticktick.com (TickTick's own MCP server, Streamable HTTP, Bearer token)
   HABIT_NAME      default "酒1杯" (matched after width normalisation, so full-width digits also match)
   HABIT_ID        optional; skips the name lookup
   START_DATE      first day to backfill (default 2025-11-27)
@@ -28,7 +28,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-CHUNK_DAYS = 90
+CHUNK_DAYS = 400  # the connector returned a whole year in one call
 
 
 def http(method, url, headers=None, body=None, retries=4):
@@ -92,37 +92,87 @@ class Supa:
 
 
 class TickTick:
-    def __init__(self, token, host):
-        self.base = host.rstrip("/") + "/open/v1"
-        self.h = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    """Minimal MCP (Streamable HTTP) client for TickTick's hosted MCP server."""
 
-    def get(self, path):
-        st, js = http("GET", self.base + path, self.h)
-        if st == 401:
-            raise SystemExit("TickTick rejected the token (401). It has probably expired or been revoked: create a new one and update the TICKTICK_TOKEN secret.")
-        if st == 403:
-            raise SystemExit(f"TickTick refused access (403): {js}. The token may lack permission for habits.")
-        if st == 404:
-            raise SystemExit(f"TickTick returned 404 for {path}: the Open API may not offer habits for this account or token.")
-        if st != 200:
-            raise SystemExit(f"TickTick request failed: {st} {js}")
-        return js
+    def __init__(self, token, url):
+        self.url = url
+        self.h = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                  "Accept": "application/json, text/event-stream"}
+        self.n = 0
+        self._rpc("initialize", {"protocolVersion": "2025-03-26", "capabilities": {},
+                                 "clientInfo": {"name": "health-sync", "version": "1"}})
+        self._post({"jsonrpc": "2.0", "method": "notifications/initialized"}, expect=False)
+
+    def _post(self, msg, expect=True):
+        req = urllib.request.Request(self.url, data=json.dumps(msg).encode(), method="POST", headers=self.h)
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(req, timeout=90) as r:
+                    sid = r.headers.get("Mcp-Session-Id")
+                    if sid:
+                        self.h["Mcp-Session-Id"] = sid
+                    raw = r.read().decode()
+                    ctype = r.headers.get("Content-Type", "")
+                break
+            except urllib.error.HTTPError as e:
+                if e.code == 401:
+                    raise SystemExit("TickTick rejected the token (401). Create a new API token (Settings > Account & Security > API Token) and update the TICKTICK_TOKEN secret.")
+                if e.code in (429, 500, 502, 503, 504) and attempt < 3:
+                    time.sleep(2 ** attempt * 2)
+                    continue
+                raise SystemExit(f"TickTick MCP request failed: {e.code} {e.read().decode(errors='replace')[:300]}")
+            except urllib.error.URLError:
+                if attempt < 3:
+                    time.sleep(2 ** attempt * 2)
+                    continue
+                raise
+        if not expect or not raw.strip():
+            return None
+        if "text/event-stream" in ctype:
+            for line in raw.splitlines():
+                if line.startswith("data:") and line[5:].strip():
+                    msg = json.loads(line[5:].strip())
+                    if msg.get("id") == self.n:
+                        return msg
+            raise SystemExit("TickTick MCP: no response in event stream")
+        return json.loads(raw)
+
+    def _rpc(self, method, params):
+        self.n += 1
+        msg = self._post({"jsonrpc": "2.0", "id": self.n, "method": method, "params": params})
+        if msg is None or "error" in msg:
+            raise SystemExit(f"TickTick MCP error on {method}: {msg and msg.get('error')}")
+        return msg["result"]
+
+    def call(self, tool, args):
+        res = self._rpc("tools/call", {"name": tool, "arguments": args})
+        if res.get("isError"):
+            raise SystemExit(f"TickTick tool {tool} failed: {json.dumps(res)[:300]}")
+        out = []
+        for part in res.get("content", []):
+            if part.get("type") == "text":
+                try:
+                    out.append(json.loads(part["text"]))
+                except ValueError:
+                    pass
+        return out
 
     def habit_id(self, name):
-        habits = self.get("/habit")
-        if isinstance(habits, dict):
-            habits = habits.get("habits") or habits.get("data") or []
-        hits = [h for h in habits if norm(h.get("name")) == norm(name)]
+        habits = []
+        for o in self.call("list_habits", {}):
+            habits.extend(o if isinstance(o, list) else [o])
+        hits = [h for h in habits if isinstance(h, dict) and norm(h.get("name")) == norm(name)]
         if not hits:
-            raise SystemExit(f"No habit named {name!r}. Habits seen: {[h.get('name') for h in habits]}")
+            raise SystemExit(f"No habit named {name!r}. Habits seen: {[h.get('name') for h in habits if isinstance(h, dict)]}")
         return hits[0]["id"]
 
     def checkins(self, hid, d0, d1):
         out, cur = [], d0
         while cur <= d1:
             end = min(cur + dt.timedelta(days=CHUNK_DAYS - 1), d1)
-            js = self.get(f"/habit/checkins?habitIds={urllib.parse.quote(hid)}&from={cur:%Y%m%d}&to={end:%Y%m%d}")
-            out.extend(flatten_checkins(js, hid))
+            for o in self.call("get_habit_checkins", {"habit_ids": [hid], "from_stamp": int(f"{cur:%Y%m%d}"),
+                                                       "to_stamp": int(f"{end:%Y%m%d}"), "client_timezone": "Europe/London"}):
+                out.extend(flatten_checkins(o, hid))
             cur = end + dt.timedelta(days=1)
         return out
 
@@ -155,7 +205,7 @@ def main():
 
     token = os.environ["TICKTICK_TOKEN"]
     supa = Supa(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
-    tt = TickTick(token, os.environ.get("TICKTICK_HOST", "https://api.ticktick.com"))
+    tt = TickTick(token, os.environ.get("TICKTICK_MCP_URL", "https://mcp.ticktick.com"))
     hid = os.environ.get("HABIT_ID") or tt.habit_id(os.environ.get("HABIT_NAME", "酒1杯"))
 
     start = dt.date.fromisoformat(os.environ.get("START_DATE", "2025-11-27"))
