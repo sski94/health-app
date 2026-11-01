@@ -591,9 +591,10 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   // ================= Compare =================
   function metricSelect(val, onChange) { var groups = {}; MET.forEach(function (x) { (groups[x.g] || (groups[x.g] = [])).push(x); }); var sel = h('select', {});
     Object.keys(groups).forEach(function (gname) { var og = h('optgroup', { label: gname }); groups[gname].forEach(function (x) { var o = h('option', { value: x.k }, [x.l]); if (x.k === val) o.selected = true; og.appendChild(o); }); sel.appendChild(og); }); sel.addEventListener('change', function () { onChange(sel.value); }); return sel; }
+  var EV_KEYS = MOVING.concat(['bedtime', 'avg_hr', 'vo2_max']);
   function aroundEvent(ev, win) { var n0 = dayNum(ev.date), rows = [];
-    MOVING.concat(['bedtime', 'avg_hr', 'vo2_max']).forEach(function (k) { var a = [], b = []; S.dates.forEach(function (d) { var n = dayNum(d), v = S.D[d][k]; if (v == null) return; if (n >= n0 - win && n < n0) a.push(v); else if (n >= n0 && n < n0 + win) b.push(v); });
-      if (a.length < 12 || b.length < 12) return; var ma = avg(a), mb = avg(b), sa = sd(a, ma), sb = sd(b, mb), sp = Math.sqrt(((a.length - 1) * sa * sa + (b.length - 1) * sb * sb) / (a.length + b.length - 2)); if (!sp) return;
+    EV_KEYS.forEach(function (k) { var a = [], b = []; S.dates.forEach(function (d) { var n = dayNum(d), v = S.D[d][k]; if (v == null) return; if (n >= n0 - win && n < n0) a.push(v); else if (n >= n0 && n < n0 + win) b.push(v); });
+      if (a.length < Math.min(12, win) || b.length < Math.min(12, win) || a.length < 5 || b.length < 5) return; var ma = avg(a), mb = avg(b), sa = sd(a, ma), sb = sd(b, mb), sp = Math.sqrt(((a.length - 1) * sa * sa + (b.length - 1) * sb * sb) / (a.length + b.length - 2)); if (!(sp > 1e-6)) return;
       rows.push({ k: k, a: ma, b: mb, na: a.length, nb: b.length, d: (mb - ma) / sp, diff: mb - ma, pct: ma ? (mb - ma) / Math.abs(ma) * 100 : 0 }); });
     rows.sort(function (x, y) { return Math.abs(y.d) - Math.abs(x.d); }); return rows; }
   function renderCompare() {
@@ -658,14 +659,29 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     if (!S.events.length) { ec.appendChild(h('div', { class: 'empty' }, ['Add life events on the Log tab, such as when you met Aiza, then see how HRV, sleep and resting HR differ before and after.'])); return; }
     if (!S.evSel || !S.events.some(function (e) { return e.id === S.evSel; })) S.evSel = S.events[0].id; var ev = S.events.find(function (e) { return e.id === S.evSel; });
     var es = h('select', {}); S.events.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (e) { var o = h('option', { value: e.id }, [fmtDay(e.date) + '  ' + e.label]); if (e.id === S.evSel) o.selected = true; es.appendChild(o); }); es.addEventListener('change', function () { S.evSel = es.value; renderCompare(); });
-    var ws = h('select', {}); [30, 60, 90, 180].forEach(function (v) { var o = h('option', { value: v }, [v + ' days either side']); if (S.evWin === v) o.selected = true; ws.appendChild(o); }); ws.addEventListener('change', function () { S.evWin = +ws.value; renderCompare(); });
-    ec.appendChild(h('div', { class: 'formrow' }, [es, ws]));
-    var rows = aroundEvent(ev, S.evWin), et = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Metric']), h('th', { style: 'text-align:right' }, ['Before']), h('th', { style: 'text-align:right' }, ['After']), h('th', {}, ['Change (relative to normal variation)'])])]);
-    rows.forEach(function (x) { var good = MK[x.k].better ? (x.d * MK[x.k].better > 0) : null, col = good == null ? 'var(--ink-3)' : good ? 'var(--opt)' : 'var(--bad)', wdt = Math.min(50, Math.abs(x.d) * 35);
-      et.appendChild(h('tr', { class: 'click', onclick: function () { S.trendKey = x.k; selectTab('trends'); } }, [h('td', {}, [MK[x.k].l]), h('td', { class: 'n' }, [fmtMetric(x.k, x.a)]), h('td', { class: 'n' }, [fmtMetric(x.k, x.b)]),
-        h('td', {}, [h('div', { class: 'bar', html: '<i style="background:' + col + ';' + (x.d >= 0 ? 'left:50%;width:' + wdt + '%' : 'right:50%;width:' + wdt + '%') + '"></i>' }), h('div', { class: 'delta' }, [chgText(x.k, x.diff, x.pct) + '  (effect ' + (x.d >= 0 ? '+' : '') + x.d.toFixed(2) + ')'])])])); });
-    ec.appendChild(rows.length ? et : h('div', { class: 'empty' }, ['Not enough data on both sides of this date (needs at least 12 days each side).']));
-    ec.appendChild(h('div', { class: 'note' }, ['An effect of 0.2 is small, 0.5 medium, 0.8 large. A change after an event is not proof the event caused it: sleep timing, alcohol, training and season may have shifted too, so check those rows as well.']));
+    // window slider: the table keeps one row per measure, so bars move smoothly as the slider moves; rows re-sort when it is released
+    if (S.evWin < 7 || S.evWin > 365) S.evWin = 60;
+    var wv = h('span', { class: 'val num', style: 'min-width:150px;text-align:right;font-weight:600' }), wr = h('input', { type: 'range', min: 7, max: 365, step: 1, value: S.evWin, 'aria-label': 'Days either side of the event', style: 'flex:1;min-width:140px' });
+    ec.appendChild(h('div', { class: 'formrow', style: 'grid-template-columns:1fr' }, [es]));
+    ec.appendChild(h('div', { class: 'ctl', style: 'display:flex;align-items:center;gap:12px;margin:2px 0 8px' }, [h('span', { class: 'lbl' }, ['Window']), h('span', { class: 'sub' }, ['7 days']), wr, h('span', { class: 'sub' }, ['365 days']), wv]));
+    var capNote = h('div', { class: 'sub', style: 'margin:0 0 6px' }), lastDay = dayNum(S.dates[S.dates.length - 1]), evN = dayNum(ev.date);
+    ec.appendChild(capNote);
+    var et = h('table', { class: 't' }, [h('tr', {}, [h('th', {}, ['Metric']), h('th', { style: 'text-align:right' }, ['Before']), h('th', { style: 'text-align:right' }, ['After']), h('th', {}, ['Change (relative to normal variation)'])])]), emp = h('div', { class: 'empty', style: 'display:none' }, ['Not enough data on both sides of this date for this window.']);
+    var trs = {}; EV_KEYS.forEach(function (k_) { if (trs[k_]) return; var tdB = h('td', { class: 'n' }), tdA = h('td', { class: 'n' }), bar = h('div', { class: 'bar' }), fill = h('i', { style: 'transition:left .12s,width .12s,background .12s' }), dl = h('div', { class: 'delta' });
+      bar.appendChild(fill); var tr = h('tr', { class: 'click', onclick: function () { S.trendKey = k_; selectTab('trends'); } }, [h('td', {}, [MK[k_].l]), tdB, tdA, h('td', {}, [bar, dl])]); trs[k_] = { tr: tr, tdB: tdB, tdA: tdA, fill: fill, dl: dl, d: 0 }; et.appendChild(tr); });
+    var hasSorted = false;
+    function paintEv(sort) { var win = S.evWin, rows = aroundEvent(ev, win), seen = {}; wv.textContent = '±' + win + ' days  ·  ' + fmtShort(evN - win) + ' to ' + fmtShort(Math.min(evN + win, lastDay));
+      capNote.textContent = evN + win > lastDay ? 'The after side stops at the latest data (' + (lastDay - evN) + ' days after the event), so before and after cover different lengths of time.' : '';
+      rows.forEach(function (x) { var r_ = trs[x.k]; seen[x.k] = 1; r_.d = x.d; r_.tr.style.display = ''; var good = MK[x.k].better ? (x.d * MK[x.k].better > 0) : null, col = good == null ? 'var(--ink-3)' : good ? 'var(--opt)' : 'var(--bad)', wdt = Math.min(50, Math.abs(x.d) * 35);
+        r_.tdB.textContent = fmtMetric(x.k, x.a); r_.tdA.textContent = fmtMetric(x.k, x.b); r_.fill.style.background = col; r_.fill.style.width = wdt + '%'; r_.fill.style.left = (x.d >= 0 ? 50 : 50 - wdt) + '%'; r_.fill.style.right = 'auto';
+        r_.dl.textContent = chgText(x.k, x.diff, x.pct) + '  (effect ' + (x.d >= 0 ? '+' : '') + x.d.toFixed(2) + ')'; });
+      Object.keys(trs).forEach(function (k_) { if (!seen[k_]) trs[k_].tr.style.display = 'none'; });
+      if (sort || !hasSorted) { rows.forEach(function (x) { et.appendChild(trs[x.k].tr); }); hasSorted = rows.length > 0; }
+      et.style.display = rows.length ? '' : 'none'; emp.style.display = rows.length ? 'none' : ''; }
+    var raf = 0; wr.addEventListener('input', function () { S.evWin = +wr.value; if (!raf) raf = requestAnimationFrame(function () { raf = 0; paintEv(false); }); });
+    wr.addEventListener('change', function () { S.evWin = +wr.value; paintEv(true); });
+    ec.appendChild(et); ec.appendChild(emp); paintEv(true);
+    ec.appendChild(h('div', { class: 'note' }, ['An effect of 0.2 is small, 0.5 medium, 0.8 large. A change after an event is not proof the event caused it: sleep timing, alcohol, training and season may have shifted too, so check those rows as well. Short windows (under a month) are noisy and long ones mix in seasons, so look for changes that hold across several window lengths.']));
   }
 
 
