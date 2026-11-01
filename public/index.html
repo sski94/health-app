@@ -345,9 +345,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'load_7d', l: 'Training load, last 7 days', u: 'pts', f: r0, g: 'Training' },
     { k: 'load_28d', l: 'Training load per week, last 28 days', u: 'pts', f: r0, g: 'Training' },
     { k: 'climb_m', l: 'Climbing (day)', u: 'm', f: r0, sum: true, g: 'Training' },
-    { k: 'under_pint', l: 'Under a pint (1 = yes)', f: yn, bin: true, sum: true, better: 1, g: 'Drinking' },
-    { k: 'under_pint_7d', l: 'Days under a pint, last 7 days', u: 'days', f: r1, better: 1, g: 'Drinking' },
-    { k: 'under_pint_28d', l: 'Days under a pint, last 28 days', u: 'days', f: r1, better: 1, g: 'Drinking' },
+    { k: 'over_pint', l: 'Over a pint (1 = yes)', f: yn, bin: true, sum: true, better: -1, g: 'Drinking' },
+    { k: 'over_pint_7d', l: 'Days over a pint, last 7 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
+    { k: 'over_pint_28d', l: 'Days over a pint, last 28 days', u: 'days', f: r1, better: -1, g: 'Drinking' },
     { k: 'away', l: 'Away from home (1 = yes)', f: yn, bin: true, g: 'Travel' },
     { k: 'post_trip', l: 'Within 2 weeks after a trip (1 = yes)', f: yn, bin: true, g: 'Travel' },
     { k: 'tz_shift_h', l: 'Time zone change while away', u: 'h', f: r1, g: 'Travel' },
@@ -356,7 +356,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'energy', l: 'Energy', f: r1, better: 1, g: 'Check-in' }
   ];
   var MK = {}; MET.forEach(function (m) { MK[m.k] = m; });
-  var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'under_pint_7d', 'mood', 'stress', 'energy'];
+  var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
 
   // ================= State =================
   var S = { pickDay: null, trips: [], daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
@@ -417,13 +417,13 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       o.activity = (firstAct && d >= firstAct) ? (pd.n > 0 ? 1 : 0) : null; // no recorded activity counts as a rest day
       if (firstAct && d >= firstAct) { o.run_km = pd.run_km; o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; } // no recorded activity = 0
       var tp_ = tripOn(d); o.away = tp_ ? 1 : 0; o.tz_shift_h = tp_ ? Math.abs(tzOffsetH(tp_.tz, d) - tzOffsetH('Europe/London', d)) : 0; o.post_trip = !tp_ && S.trips.some(function (t) { var gap = dayNum(d) - dayNum(t.end_date); return gap > 0 && gap <= 14; }) ? 1 : 0;
-      if (S.drinks[d] != null) o.under_pint = S.drinks[d] ? 0 : 1; // stored as over_pint; here 1 = success (under a pint)
+      if (S.drinks[d] != null) o.over_pint = S.drinks[d] ? 1 : 0; // 1 = drank over a pint, 0 = did not
       var ci = S.checkins[d]; if (ci) { if (ci.mood != null) o.mood = ci.mood; if (ci.stress != null) o.stress = ci.stress; if (ci.energy != null) o.energy = ci.energy; }
       S.D[d] = o; S.dates.push(d); }
     // rolling loads (only where every day in the window is covered)
     function roll(key, out, win, div) { for (var i = win - 1; i < S.dates.length; i++) { var s = 0, ok = true; for (var j = i - win + 1; j <= i; j++) { var v = S.D[S.dates[j]][key]; if (v == null) { ok = false; break; } s += v; } if (ok) S.D[S.dates[i]][out] = s / (div || 1); } }
     roll('run_km', 'run_km_7d', 7, 1); roll('run_km', 'run_km_28d', 28, 4); roll('ride_km', 'ride_km_7d', 7, 1); roll('active_min', 'active_min_7d', 7, 1); roll('load', 'load_7d', 7, 1); roll('load', 'load_28d', 28, 4);
-    roll('under_pint', 'under_pint_7d', 7, 1); roll('under_pint', 'under_pint_28d', 28, 1);
+    roll('over_pint', 'over_pint_7d', 7, 1); roll('over_pint', 'over_pint_28d', 28, 1);
   }
 
   // ================= Series, smoothing, stats =================
@@ -617,7 +617,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var sc = h('div', { class: 'scores' }); ['sleep_score', 'recovery_index', 'movement_index'].forEach(function (k) { var lv = band(r, k);
       var sp0 = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -45); }).map(function (x) { return S.D[x][k]; }), lv === 'none' ? 'var(--teal)' : COLORS[lv]);
       sc.appendChild(h('button', { class: 'card score', onclick: function () { S.trendKey = k; selectTab('trends'); } }, [h('div', { class: 'lbl' }, [MK[k].l]), h('div', { class: 'big num', style: 'color:' + (lv === 'none' ? 'var(--ink)' : COLORS[lv]) }, [r[k] == null ? '-' : String(r[k])]), h('div', { class: 'tag', html: dot(lv) + ' ' + esc(LABEL[lv] || '') }), h('div', { class: 'scorespark', html: sp0 })])); });
-    var keys = ['avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'bedtime', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'run_km_28d', 'load_28d', 'under_pint_7d', 'mood', 'stress', 'energy'];
+    var keys = ['avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'bedtime', 'steps', 'vo2_max', 'spo2', 'temp_dev_c', 'run_km_28d', 'load_28d', 'over_pint_7d', 'mood', 'stress', 'energy'];
     var g = h('div', { class: 'grid' }); keys.forEach(function (k) { var v = D[k]; if (v == null) return; var lv = band(r, k), m = MK[k], d = '', base = avg(S.dates.filter(function (x) { return x < S.date && x >= addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
       if (base != null && m.better) { var diff = v - base, pct = base ? diff / Math.abs(base) * 100 : 0; d = Math.abs(pct) >= 1 ? (diff > 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(0) + '% vs 30d' : '≈ 30d avg'; }
       var sp = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -30); }).map(function (x) { return S.D[x][k]; }));
@@ -677,20 +677,20 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var bands = []; if (!k2 && (k === 'sleep_score' || k === 'recovery_index' || k === 'movement_index')) bands = [{ from: SCORE_BANDS.optimal, to: 100, color: 'var(--opt)', op: .13 }, { from: SCORE_BANDS.good, to: SCORE_BANDS.optimal, color: 'var(--good)', op: .13 }, { from: 0, to: SCORE_BANDS.good, color: 'var(--bad)', op: .1 }];
     var legendHtml = function () { var on = S.sm >= 1.5, ev = S.showEvents && S.events.length ? '<span><i style="background:var(--accent2);opacity:.6"></i>Event</span>' : '';
       if (k2) return '<span><i style="background:var(--teal)"></i>' + esc(m.l) + ' (left axis)</span><span><i style="background:var(--accent2)"></i>' + esc(m2.l) + ' (right axis)</span>' + (on ? '<span>' + smoothName(S.sm) + '</span>' : '') + ev;
-      if (m.bin) return '<span><i style="background:var(--teal)"></i>' + esc(m.l) + ', shown as it happened (no smoothing)</span>' + ev;
+      if (m.bin) return '<span><i style="background:var(--teal)"></i>' + esc(m.l) + (on ? ', share of days that were yes (' + smoothName(S.sm) + ')' : ', as it happened') + '</span>' + ev;
       return '<span><i style="background:var(--ink-3)"></i>Daily</span>' + (on ? '<span><i style="background:var(--teal)"></i>' + smoothName(S.sm) + '</span>' : '') + ev; };
     var c = chartCard(k2 ? m.l + ' and ' + m2.l : m.l, legendHtml()); left.appendChild(c); c.appendChild(h('div', { class: 'zhint' }, ['Pinch or Ctrl-scroll to zoom, drag to pan, tap a day for details, double-tap to reset.']));
     var fmtOf = function (mm) { return function (v) { return mm.f === hm || mm.f === clock ? mm.f(v) : String(mm.f === r0 ? r0(v) : r1(v)); }; }, fmtv = fmtOf(m), fmtv2 = m2 ? fmtOf(m2) : null;
     var axisFmt = function (mm) { return function (v) { return mm.f === hm ? Math.round(v / 60 * 10) / 10 + 'h' : mm.f === clock ? clock(v) : Number(v.toFixed(1)).toLocaleString('en-GB'); }; };
     var map2 = {}; raw2.forEach(function (q) { map2[q[0]] = q[1]; });
     paint = function () { var on = S.sm >= 1.5, sm = smoothPts(series(k), S.sm), smr = sm.filter(inWin), sm2 = k2 ? smoothPts(series(k2), S.sm) : [], sm2m = {}; sm2.forEach(function (q) { sm2m[q[0]] = q[1]; }); c.legend.innerHTML = legendHtml();
-      var b1 = !!m.bin, b2 = !!(m2 && m2.bin), ser = b1 ? [{ pts: raw, color: 'var(--teal)', width: 1.3, step: true }, { pts: [], color: 'var(--teal)' }] : [{ pts: raw, color: k2 && !on ? 'var(--teal)' : 'var(--ink-3)', width: k2 && !on ? 1.7 : 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }];
-      if (k2) { if (b2) { ser.push({ pts: raw2, color: 'var(--accent2)', width: 1.3, step: true, axis2: true }); ser.push({ pts: [], color: 'var(--accent2)', axis2: true }); } else { ser.push({ pts: raw2, color: 'var(--accent2)', width: on ? 1 : 1.7, dots: on, noLine: on, opacity: .85, axis2: true, dotOp: .4 }); ser.push({ pts: on ? sm2.filter(inWin) : [], color: 'var(--accent2)', width: 2.6, axis2: true }); } }
-      var ynAxis = function (v) { return v === 1 ? 'Yes' : v === 0 ? 'No' : ''; };
-      lineChart(c.host, { xBands: tripBands(), zoomKey: 'trend', onDraw: function (g_) { showPop(g_); }, breakGap: 3, pinX: S.pickDay, onPick: function (day) { S.pickDay = day; paint(); }, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? (b2 ? ynAxis : axisFmt(m2)) : null, y2Ticks: b2 ? [0, 1] : null, y2Min: b2 ? -0.08 : null, y2Max: b2 ? 1.08 : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
-        yMin: b1 ? -0.08 : bands.length ? 0 : undefined, yMax: b1 ? 1.08 : bands.length ? 100 : undefined, yTicks: b1 ? [0, 1] : null, yFmt: b1 ? ynAxis : axisFmt(m),
-        readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }), t = fmtShort(x) + '  ' + fmtv(y) + (on && !b1 && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : '');
-          if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && !b2 && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); };
+      var b1 = !!m.bin, b2 = !!(m2 && m2.bin), ser = b1 ? (on ? [{ pts: raw, color: 'var(--teal)', width: 1, dots: true, noLine: true, dotR: 1.6, dotOp: .3 }, { pts: smr, color: 'var(--teal)', width: 2.6 }] : [{ pts: raw, color: 'var(--teal)', width: 1.3, step: true }, { pts: [], color: 'var(--teal)' }]) : [{ pts: raw, color: k2 && !on ? 'var(--teal)' : 'var(--ink-3)', width: k2 && !on ? 1.7 : 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }];
+      if (k2) { if (b2) { if (on) { ser.push({ pts: raw2, color: 'var(--accent2)', width: 1, dots: true, noLine: true, dotR: 1.6, dotOp: .3, axis2: true }); ser.push({ pts: sm2.filter(inWin), color: 'var(--accent2)', width: 2.6, axis2: true }); } else { ser.push({ pts: raw2, color: 'var(--accent2)', width: 1.3, step: true, axis2: true }); ser.push({ pts: [], color: 'var(--accent2)', axis2: true }); } } else { ser.push({ pts: raw2, color: 'var(--accent2)', width: on ? 1 : 1.7, dots: on, noLine: on, opacity: .85, axis2: true, dotOp: .4 }); ser.push({ pts: on ? sm2.filter(inWin) : [], color: 'var(--accent2)', width: 2.6, axis2: true }); } }
+      var ynAxis = function (v) { return on ? (v >= -1e-9 && v <= 1 + 1e-9 ? Math.round(v * 100) + '%' : '') : v === 1 ? 'Yes' : v === 0 ? 'No' : ''; }, ynTicks = on ? [0, .5, 1] : [0, 1], trendTxt = function (mm, f_, v) { return mm.bin ? Math.round(v * 100) + '% of days yes' : f_(v); };
+      lineChart(c.host, { xBands: tripBands(), zoomKey: 'trend', onDraw: function (g_) { showPop(g_); }, breakGap: 3, pinX: S.pickDay, onPick: function (day) { S.pickDay = day; paint(); }, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? (b2 ? ynAxis : axisFmt(m2)) : null, y2Ticks: b2 ? ynTicks : null, y2Min: b2 ? -0.08 : null, y2Max: b2 ? 1.08 : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
+        yMin: b1 ? -0.08 : bands.length ? 0 : undefined, yMax: b1 ? 1.08 : bands.length ? 100 : undefined, yTicks: b1 ? ynTicks : null, yFmt: b1 ? ynAxis : axisFmt(m),
+        readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }), t = fmtShort(x) + '  ' + fmtv(y) + (on && s2 && s2[1] != null ? '  (' + (b1 ? '' : 'trend ') + trendTxt(m, fmtv, s2[1]) + ')' : '');
+          if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && sm2m[x] != null ? '  (' + (b2 ? '' : 'trend ') + trendTxt(m2, fmtv2, sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); };
     var pop = null;
     function closePop() { if (pop && pop.parentNode) pop.parentNode.removeChild(pop); pop = null; }
     function showPop(geo) { closePop(); if (S.pickDay == null || !geo) return; var day = S.pickDay, ds = dayStr(day); if (day < winCut || day > dayNum(S.dates[S.dates.length - 1]) || day < geo.x0 - 0.5 || day > geo.x1 + 0.5) return;
@@ -698,7 +698,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       pop = h('div', { class: 'pop' });
       pop.appendChild(h('div', { class: 'ph' }, [h('span', {}, [fmtDay(ds)]), h('button', { class: 'px', type: 'button', 'aria-label': 'Close', onclick: function () { S.pickDay = null; paint(); } }, ['×'])]));
       keys.forEach(function (kk) { var mm = MK[kk], v = D[kk], sv_ = on ? (smoothPts(series(kk), S.sm).find(function (q) { return q[0] === day; }) || [])[1] : null, f = function (x) { return mm.f === hm || mm.f === clock ? mm.f(x) : String(mm.f(x)); };
-        pop.appendChild(h('div', { class: 'pr' }, [h('span', {}, [mm.l]), h('span', { class: 'n' }, [v == null ? 'no data' : f(v) + (mm.u && mm.f !== hm && mm.f !== clock ? ' ' + mm.u : '') + (sv_ != null && !mm.bin ? '  (trend ' + f(sv_) + ')' : '')])])); });
+        pop.appendChild(h('div', { class: 'pr' }, [h('span', {}, [mm.l]), h('span', { class: 'n' }, [v == null ? 'no data' : f(v) + (mm.u && mm.f !== hm && mm.f !== clock ? ' ' + mm.u : '') + (sv_ != null ? '  (' + (mm.bin ? Math.round(sv_ * 100) + '% of days yes' : 'trend ' + f(sv_)) + ')' : '')])])); });
       var span = dayNum(S.dates[S.dates.length - 1]) - Math.max(winCut, dayNum(S.dates[0])), tol = Math.max(0, Math.ceil(10 / Math.max(100, geo.W - 50) * span)), evs = S.events.filter(function (e) { return Math.abs(dayNum(e.date) - day) <= tol; }); if (evs.length) pop.appendChild(h('div', { class: 'ps' }, [h('div', { class: 'pl' }, [evs.length > 1 ? 'Events nearby' : 'Event']), h('div', {}, [evs.map(function (e) { return fmtShort(dayNum(e.date)) + '  ' + e.label; }).join('\n')])])); if (evs.length) pop.lastChild.lastChild.style.whiteSpace = 'pre-line';
       var tpo = tripOn(ds); if (tpo) pop.appendChild(h('div', { class: 'ps' }, [h('div', { class: 'pl' }, ['Away']), h('div', {}, [tpo.place + '  (' + tpo.tz.replace('_', ' ') + ')'])]));
       var acts = (S.actByDate[ds] || []).slice().sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; }), isAct = keys.some(function (kk) { return MK[kk].g === 'Training' || MK[kk].g === 'Activity'; });
@@ -814,12 +814,12 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     paintT = function () {
     // Every line is scaled to its own range, 0 = its lowest value and 1 = its highest, so different units share one axis and nothing goes negative.
     // Yes/no measures are not smoothed or rescaled: they sit at exactly 0 (no) and 1 (yes).
-    var sw = wk ? Math.max(S.sm, 7) : S.sm, keys = tlKeys(), orig = {}, zs = keys.map(function (k_) { var mm = MK[k_], pts = mm.bin ? series(k_) : smoothPts(series(k_), sw), o = {}; pts.forEach(function (q) { o[q[0]] = q[1]; }); orig[k_] = o;
-        if (mm.bin) return pts.map(function (q) { return [q[0], q[1] >= .5 ? 1 : 0]; }); var v = pts.map(function (q) { return q[1]; }).filter(function (x) { return x != null; }), lo = Math.min.apply(null, v), hi = Math.max.apply(null, v); return pts.map(function (q) { return [q[0], q[1] == null ? null : hi > lo ? (q[1] - lo) / (hi - lo) : .5]; }); }),
+    var sw = wk ? Math.max(S.sm, 7) : S.sm, keys = tlKeys(), orig = {}, zs = keys.map(function (k_) { var mm = MK[k_], smoothed = sw >= 1.5, pts = smoothPts(series(k_), sw), o = {}; pts.forEach(function (q) { o[q[0]] = q[1]; }); orig[k_] = o;
+        if (mm.bin) return smoothed ? pts : pts.map(function (q) { return [q[0], q[1] >= .5 ? 1 : 0]; }); var v = pts.map(function (q) { return q[1]; }).filter(function (x) { return x != null; }), lo = Math.min.apply(null, v), hi = Math.max.apply(null, v); return pts.map(function (q) { return [q[0], q[1] == null ? null : hi > lo ? (q[1] - lo) / (hi - lo) : .5]; }); }),
       cut = Math.max.apply(null, zs.map(function (q) { return q.length ? q[0][0] : 0; }));
     tc.legend.innerHTML = tlLegend();
-    lineChart(tc.host, { xBands: tripBands(), zoomKey: 'cmpt', breakGap: 3, h: 280, yMin: -0.06, yMax: 1.06, yTicks: [0, .25, .5, .75, 1], series: zs.map(function (q, i_) { return { pts: q.filter(function (r_) { return r_[0] >= cut; }), color: tlColor(i_), width: i_ === 1 ? 2.2 : 2, step: !!MK[keys[i_]].bin }; }), markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return v === 0 ? '0' : v === 1 ? '1' : Number(v.toFixed(2)); },
-      readSeries: 0, readout: function (x) { tc.read.textContent = fmtShort(x) + '  ' + keys.map(function (k_, i_) { var mm = MK[k_], v = orig[k_][x]; return (i_ === 0 ? 'X ' : i_ === 1 ? 'Y ' : 'M' + (i_ + 1) + ' ') + (v == null ? '-' : mm.f === hm || mm.f === clock || mm.bin ? mm.f(v) : String(mm.f(v)) + (mm.u ? ' ' + mm.u : '')); }).join('   '); } });
+    lineChart(tc.host, { xBands: tripBands(), zoomKey: 'cmpt', breakGap: 3, h: 280, yMin: -0.06, yMax: 1.06, yTicks: [0, .25, .5, .75, 1], series: zs.map(function (q, i_) { return { pts: q.filter(function (r_) { return r_[0] >= cut; }), color: tlColor(i_), width: i_ === 1 ? 2.2 : 2, step: !!MK[keys[i_]].bin && sw < 1.5 }; }), markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return v === 0 ? '0' : v === 1 ? '1' : Number(v.toFixed(2)); },
+      readSeries: 0, readout: function (x) { tc.read.textContent = fmtShort(x) + '  ' + keys.map(function (k_, i_) { var mm = MK[k_], v = orig[k_][x]; return (i_ === 0 ? 'X ' : i_ === 1 ? 'Y ' : 'M' + (i_ + 1) + ' ') + (v == null ? '-' : mm.bin ? (sw >= 1.5 ? Math.round(v * 100) + '% yes' : mm.f(v)) : mm.f === hm || mm.f === clock ? mm.f(v) : String(mm.f(v)) + (mm.u ? ' ' + mm.u : '')); }).join('   '); } });
     };
     paintT();
     // every cause against every outcome, strongest first
@@ -913,7 +913,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 
 
   // ================= Heatmap =================
-  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'under_pint_7d', 'away', 'mood', 'stress', 'energy'];
+  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'over_pint_7d', 'away', 'mood', 'stress', 'energy'];
   var BANDED = ['sleep_score', 'recovery_index', 'movement_index', 'total_sleep_min', 'time_in_bed_min', 'restorative_pct', 'efficiency', 'temp_dev_c'];
   // z is the distance from the measure's own average in standard deviations. better: 1 high is good, -1 high is bad, otherwise neutral.
   function heatFill(z, better) { var a = Math.min(1, 0.12 + Math.abs(z) / 2.2 * 0.88);
@@ -959,7 +959,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       ['pointerdown', 'touchstart', 'wheel', 'mousedown'].forEach(function (ev) { wrap.addEventListener(ev, function () { driver = rec; }, { passive: true }); });
       wrap.addEventListener('scroll', function () { if (driver && driver !== rec) return; var day = rec.d0 + wrap.scrollLeft / rec.ppd; linked.forEach(function (o) { if (o !== rec) o.wrap.scrollLeft = (day - o.d0) * o.ppd; }); }, { passive: true }); }
     function calCard(key, title) {
-      var card = h('div', { class: 'card chartcard', style: 'margin-bottom:0' }), read = h('div', { class: 'read num' }), pn = pinned(card, title, read), foot = h('div', { class: 'swatches' }), isAct = key === 'activity', isDrink = key === 'under_pint';
+      var card = h('div', { class: 'card chartcard', style: 'margin-bottom:0' }), read = h('div', { class: 'read num' }), pn = pinned(card, title, read), foot = h('div', { class: 'swatches' }), isAct = key === 'activity', isDrink = key === 'over_pint';
       card.appendChild(foot);
       card.draw = function () {
         var gp = 2, lw = 28, tp = 38; pn.lab.style.width = lw + 'px';
@@ -969,7 +969,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
         var lm = '', lx = -99; cols.forEach(function (n, ci) { var tg = monthTag(n + 3), x = ci * pitch; if (tg !== lm && x - lx > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lx = x; } lm = tg; });
         var vv = rangeDays.map(function (d) { return S.D[d][key]; }).filter(function (x) { return x != null; }), mu = avg(vv), sg = sd(vv, mu) || 1, cells = [], cnt = { opt: 0, good: 0, bad: 0, n: 0 }, act = { yes: 0, no: 0 };
         cols.forEach(function (n, ci) { for (var i = 0; i < 7; i++) { var d = dayStr(n + i), D = S.D[d]; if (!D || n + i > lastDay) continue; var v = D[key], f, ex = null, inR = !HS.range || n + i >= lastDay - HS.range;
-          if (isDrink) { if (v === 1) { f = ['var(--opt)', .85]; if (inR) act.yes++; } else if (v === 0) { f = ['var(--bad)', .85]; if (inR) act.no++; } else { f = ['none', 0]; ex = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+          if (isDrink) { if (v === 1) { f = ['var(--bad)', .85]; if (inR) act.yes++; } else if (v === 0) { f = ['var(--opt)', .85]; if (inR) act.no++; } else { f = ['none', 0]; ex = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
           else if (isAct) { if (v === 1) { f = ['var(--teal)', 1]; if (inR) act.yes++; } else if (v === 0) { f = ['var(--fill)', 1]; if (inR) act.no++; } else { f = ['none', 0]; ex = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
           else if (v == null) f = ['var(--fill)', 1]; else { var lv = scoreLevel(v); if (inR) { cnt[lv]++; cnt.n++; } f = useBandsMode ? [COLORS[lv], 1] : heatFill((v - mu) / sg, 1); }
           var at = { x: ci * pitch + (ex ? .5 : 0), y: tp + i * pitch + (ex ? .5 : 0), width: cs - (ex ? 1 : 0), height: cs - (ex ? 1 : 0), rx: 3, fill: f[0], 'fill-opacity': f[1] }; if (ex) for (var k in ex) at[k] = ex[k]; sv('rect', at, svg); cells.push({ x: ci * pitch, y: tp + i * pitch, d: d, v: v }); } });
@@ -977,23 +977,23 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
         var hv = sv('rect', { width: cs, height: cs, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg);
         function mv(ev) { var r = svg.getBoundingClientRect(), k = W / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, ci = Math.floor(x / pitch), ri = Math.floor((y - tp) / pitch);
           var c = cells.find(function (q) { return q.x === ci * pitch && q.y === tp + ri * pitch; }); if (!c) { hv.setAttribute('opacity', 0); return; } hv.setAttribute('x', c.x); hv.setAttribute('y', c.y); hv.setAttribute('opacity', 1);
-          if (isDrink) { read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'not logged' : c.v ? 'Under a pint' : 'Over a pint'); }
+          if (isDrink) { read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'not logged' : c.v ? 'Over a pint' : 'Under a pint'); }
           else if (isAct) { var al = S.actByDate[c.d] || []; read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no activity source' : c.v ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity'); }
           else { var lv = c.v == null ? 'none' : scoreLevel(c.v); read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no data' : c.v + '  ' + LABEL[lv]); } }
         svg.addEventListener('pointermove', mv); svg.addEventListener('pointerdown', mv); setTimeout(function () { pn.wrap.scrollLeft = pn.wrap.scrollWidth; }, 0);
         var pc = function (x) { return cnt.n ? Math.round(x / cnt.n * 100) + '%' : '-'; };
-        foot.innerHTML = isDrink ? '<i style="background:var(--opt)"></i>Under a pint<i style="background:var(--bad)"></i>Over a pint<i style="background:none;border:1px dashed var(--c-grid)"></i>Not logged<span style="margin-left:8px">Under a pint on ' + act.yes + ' of ' + (act.yes + act.no) + ' logged days' + (act.yes + act.no ? ' (' + Math.round(act.yes / (act.yes + act.no) * 100) + '%)' : '') + '</span>' : isAct ? '<i style="background:var(--teal)"></i>Activity<i style="background:var(--fill)"></i>None<i style="background:none;border:1px dashed var(--c-grid)"></i>No source<span style="margin-left:8px">Active on ' + act.yes + ' of ' + (act.yes + act.no) + ' recorded days' + (act.yes + act.no ? ' (' + Math.round(act.yes / (act.yes + act.no) * 100) + '%)' : '') + '</span>'
+        foot.innerHTML = isDrink ? '<i style="background:var(--opt)"></i>Under a pint<i style="background:var(--bad)"></i>Over a pint<i style="background:none;border:1px dashed var(--c-grid)"></i>Not logged<span style="margin-left:8px">Under a pint on ' + act.no + ' of ' + (act.yes + act.no) + ' logged days' + (act.yes + act.no ? ' (' + Math.round(act.no / (act.yes + act.no) * 100) + '%)' : '') + '</span>' : isAct ? '<i style="background:var(--teal)"></i>Activity<i style="background:var(--fill)"></i>None<i style="background:none;border:1px dashed var(--c-grid)"></i>No source<span style="margin-left:8px">Active on ' + act.yes + ' of ' + (act.yes + act.no) + ' recorded days' + (act.yes + act.no ? ' (' + Math.round(act.yes / (act.yes + act.no) * 100) + '%)' : '') + '</span>'
           : (useBandsMode ? '<i style="background:var(--opt)"></i>Optimal ' + pc(cnt.opt) + '<i style="background:var(--good)"></i>Good ' + pc(cnt.good) + '<i style="background:var(--bad)"></i>Needs attention ' + pc(cnt.bad) : RELSW + '<span style="margin-left:8px">Average ' + (mu == null ? '-' : Math.round(mu)) + '</span>');
       };
       return card;
     }
     var deck = h('div', { class: 'deck' }); p.appendChild(deck); var fw = deck;
-    [['sleep_score', 'Sleep'], ['recovery_index', 'Recovery'], ['movement_index', 'Movement'], ['activity', 'Activity (any Strava or Garmin activity)'], ['under_pint', 'Under a pint (drinking habit)']].forEach(function (a) { var c = calCard(a[0], a[1]); c.setAttribute('data-key', 'cal:' + a[0]); fw.appendChild(c); c.draw(); });
+    [['sleep_score', 'Sleep'], ['recovery_index', 'Recovery'], ['movement_index', 'Movement'], ['activity', 'Activity (any Strava or Garmin activity)'], ['over_pint', 'Over a pint (drinking habit)']].forEach(function (a) { var c = calCard(a[0], a[1]); c.setAttribute('data-key', 'cal:' + a[0]); fw.appendChild(c); c.draw(); });
     p.appendChild(h('div', { class: 'note', style: 'margin:-2px 0 10px' }, ['Each square is one day, each column one week, Monday at the top. Activity covers Strava to 24 May 2026 and Garmin runs from 10 Aug 2026; dashed squares have no activity source.']));
 
     // --- always-on strip: sleep, recovery, movement and whether there was an activity, day by day
     var sc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), sread = h('div', { class: 'read num' }), sp = pinned(sc, 'Sleep, recovery, movement, activity and drinking, day by day', sread); sc.setAttribute('data-key', 'strip'); deck.appendChild(sc);
-    var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY'], ['under_pint', 'UNDER PINT'], ['away', 'AWAY']];
+    var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY'], ['over_pint', 'OVER PINT'], ['away', 'AWAY']];
     var sLab = 84, sTop = 26, sRh = 24, sH = sTop + SR.length * sRh + 4; sp.lab.style.width = sLab + 'px'; var sAvail = sp.wrap.clientWidth || 240, scw = Math.max(6, Math.floor(sAvail / days.length)), sW = scw * days.length + 4;
     var ssvg = sv('svg', { viewBox: '0 0 ' + sW + ' ' + sH, width: sW, height: sH, class: 'hm' }); sp.wrap.appendChild(ssvg); link(sp.wrap, dayNum(days[0]), scw); var slsvg = sv('svg', { viewBox: '0 0 ' + sLab + ' ' + sH, width: sLab, height: sH, class: 'hm' }); sp.lab.appendChild(slsvg);
     var stat = {}; SR.slice(0, 3).forEach(function (r) { var vv = days.map(function (d) { return S.D[d][r[0]]; }).filter(function (x) { return x != null; }), mu = avg(vv); stat[r[0]] = { mu: mu, sg: sd(vv, mu) || 1 }; });
@@ -1001,7 +1001,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     SR.forEach(function (r, ri) { var tx = sv('text', { x: sLab - 8, y: sTop + ri * sRh + sRh / 2 + 3, 'text-anchor': 'end' }, slsvg); tx.textContent = r[1];
       days.forEach(function (d, i) { var v = S.D[d][r[0]], f, extra = {};
         if (r[0] === 'away') { f = v === 1 ? ['var(--accent2)', .9] : ['var(--fill)', 1]; }
-        else if (r[0] === 'under_pint') { if (v === 1) f = ['var(--opt)', .85]; else if (v === 0) f = ['var(--bad)', .85]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+        else if (r[0] === 'over_pint') { if (v === 1) f = ['var(--bad)', .85]; else if (v === 0) f = ['var(--opt)', .85]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
         else if (r[0] === 'activity') { if (v === 1) f = ['var(--teal)', 1]; else if (v === 0) f = ['var(--fill)', 1]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
         else if (v == null) f = ['var(--fill)', 1]; else if (useBandsMode) f = [COLORS[scoreLevel(v)], 1]; else f = heatFill((v - stat[r[0]].mu) / stat[r[0]].sg, 1);
         var at = { x: i * scw + (extra.stroke ? .5 : 0), y: sTop + ri * sRh + 1, width: scw - 1, height: sRh - 2, rx: 2.5, fill: f[0], 'fill-opacity': f[1] }; for (var k in extra) at[k] = extra[k]; sv('rect', at, ssvg); }); });
@@ -1011,7 +1011,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       if (i < 0 || i >= days.length || ri < 0 || ri >= SR.length) { shov.setAttribute('opacity', 0); return; } var d = days[i]; shov.setAttribute('x', i * scw); shov.setAttribute('y', sTop + ri * sRh + 1); shov.setAttribute('opacity', 1);
       var D = S.D[d], row = S.byDate[d] || {}, pick = SR[ri][0], txt;
       if (pick === 'away') { var tpd = tripOn(d); txt = tpd ? 'away: ' + tpd.place : 'at home'; }
-      else if (pick === 'under_pint') txt = D.under_pint == null ? 'not logged' : D.under_pint ? 'under a pint' : 'over a pint';
+      else if (pick === 'over_pint') txt = D.over_pint == null ? 'not logged' : D.over_pint ? 'over a pint' : 'under a pint';
       else if (pick === 'activity') { var al = S.actByDate[d] || []; txt = D.activity == null ? 'no activity source for this day' : D.activity ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity recorded'; txt = 'Activity: ' + txt; }
       else { var v = D[pick], lv = band(row, pick); txt = SR[ri][1].charAt(0) + SR[ri][1].slice(1).toLowerCase() + ': ' + (v == null ? 'no data' : v + (lv !== 'none' ? '  ' + LABEL[lv] : '')); }
       sread.textContent = fmtDay(d) + '  ' + txt; }
