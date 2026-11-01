@@ -300,6 +300,15 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   function clock(v) { v = ((v % 24) + 24) % 24; var h_ = Math.floor(v), m_ = Math.round((v - h_) * 60); if (m_ === 60) { h_ = (h_ + 1) % 24; m_ = 0; } return String(h_).padStart(2, '0') + ':' + String(m_).padStart(2, '0'); }
   function paceStr(s) { return Math.floor(s / 60) + ':' + String(Math.round(s % 60)).padStart(2, '0'); }
   // group: uh (daily from Ultrahuman), load (from activities), ci (check-in). better: +1 higher is better, -1 lower is better.
+  // ---- trips: where you were, and in which timezone you slept ----
+  // Nights are dated by the day you wake: the night before departure is at home, the night before the return day is abroad.
+  function tripOn(d) { for (var i = 0; i < S.trips.length; i++) { var t = S.trips[i]; if (d >= t.start_date && d <= t.end_date) return t; } return null; }
+  function nightTz(d, dflt) { for (var i = 0; i < S.trips.length; i++) { var t = S.trips[i]; if (d > t.start_date && d <= t.end_date) return t.tz; } return dflt; }
+  var TZOFF = {};
+  function tzOffsetH(tz, d) { var key = tz + d; if (TZOFF[key] != null) return TZOFF[key]; var v = 0; try { var n = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset', hour: 'numeric' }).formatToParts(new Date(d + 'T12:00:00Z')).filter(function (x) { return x.type === 'timeZoneName'; })[0].value, m = /GMT([+-])(\d{1,2})(?::?(\d{2}))?/.exec(n); if (m) v = (m[1] === '-' ? -1 : 1) * (+m[2] + (m[3] ? +m[3] / 60 : 0)); } catch (e) { v = 0; } TZOFF[key] = v; return v; }
+  function applyTz() { S.daily.forEach(function (r) { r.timezone = nightTz(r.date, r._tz0 || 'Europe/London'); }); }
+  function tripBands() { return S.showEvents ? S.trips.map(function (t) { return { from: dayNum(t.start_date), to: dayNum(t.end_date), label: t.place }; }) : []; }
+  function compEvents() { var out = S.events.slice(); S.trips.forEach(function (t) { out.push({ id: 'tl' + t.id, date: t.start_date, label: 'Left for ' + t.place, kind: 'travel' }); out.push({ id: 'tb' + t.id, date: dayStr(dayNum(t.end_date) + 1), label: 'Back from ' + t.place, kind: 'travel' }); }); return out; }
   function yn(v) { return v >= 0.5 ? 'Yes' : 'No'; }
   var MET = [
     { k: 'sleep_score', l: 'Sleep score', f: r0, better: 1, g: 'Sleep' },
@@ -339,6 +348,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'under_pint', l: 'Under a pint (1 = yes)', f: yn, bin: true, sum: true, better: 1, g: 'Drinking' },
     { k: 'under_pint_7d', l: 'Days under a pint, last 7 days', u: 'days', f: r1, better: 1, g: 'Drinking' },
     { k: 'under_pint_28d', l: 'Days under a pint, last 28 days', u: 'days', f: r1, better: 1, g: 'Drinking' },
+    { k: 'away', l: 'Away from home (1 = yes)', f: yn, bin: true, g: 'Travel' },
+    { k: 'post_trip', l: 'Within 2 weeks after a trip (1 = yes)', f: yn, bin: true, g: 'Travel' },
+    { k: 'tz_shift_h', l: 'Time zone change while away', u: 'h', f: r1, g: 'Travel' },
     { k: 'mood', l: 'Mood', f: r1, better: 1, g: 'Check-in' },
     { k: 'stress', l: 'Stress', f: r1, better: -1, g: 'Check-in' },
     { k: 'energy', l: 'Energy', f: r1, better: 1, g: 'Check-in' }
@@ -347,7 +359,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   var MOVING = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'deep_min', 'rem_min', 'awake_min', 'temp_dev_c', 'spo2', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'under_pint_7d', 'mood', 'stress', 'energy'];
 
   // ================= State =================
-  var S = { pickDay: null, daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
+  var S = { pickDay: null, trips: [], daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, drinks: {}, date: null, nightCache: {},
     trendKey: 'avg_hrv', trendCmp: '', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
     cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' }, actByDate: {} };
   try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; if (sv_.heatMode) S.heat.mode = sv_.heatMode; } catch (e) {}
@@ -404,6 +416,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, load: 0, n: 0 }; if (firstAct && d >= firstAct) o.load = pd.load; // no recorded activity = 0 load
       o.activity = (firstAct && d >= firstAct) ? (pd.n > 0 ? 1 : 0) : null; // no recorded activity counts as a rest day
       if (firstAct && d >= firstAct) { o.run_km = pd.run_km; o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; } // no recorded activity = 0
+      var tp_ = tripOn(d); o.away = tp_ ? 1 : 0; o.tz_shift_h = tp_ ? Math.abs(tzOffsetH(tp_.tz, d) - tzOffsetH('Europe/London', d)) : 0; o.post_trip = !tp_ && S.trips.some(function (t) { var gap = dayNum(d) - dayNum(t.end_date); return gap > 0 && gap <= 14; }) ? 1 : 0;
       if (S.drinks[d] != null) o.under_pint = S.drinks[d] ? 0 : 1; // stored as over_pint; here 1 = success (under a pint)
       var ci = S.checkins[d]; if (ci) { if (ci.mood != null) o.mood = ci.mood; if (ci.stress != null) o.stress = ci.stress; if (ci.energy != null) o.energy = ci.energy; }
       S.D[d] = o; S.dates.push(d); }
@@ -460,6 +473,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var cid = 'zc' + (++ZSEQ); sv('rect', { x: P.l, y: 0, width: Math.max(1, W - P.l - P.r), height: H }, sv('clipPath', { id: cid }, sv('defs', {}, svg)));
     var gS = sv('g', { 'clip-path': 'url(#' + cid + ')' }, svg);
     (cfg.bands || []).forEach(function (b) { var ya = sy(Math.min(b.to, y1)), yb = sy(Math.max(b.from, y0)); if (yb > ya) sv('rect', { x: P.l, y: ya, width: W - P.l - P.r, height: yb - ya, fill: b.color, opacity: b.op || .12 }, svg); });
+    (cfg.xBands || []).forEach(function (b) { var xa = Math.max(P.l, sx(b.from - .5)), xb = Math.min(W - P.r, sx(b.to + .5)); if (xb <= xa) return; var rc = sv('rect', { x: xa, y: P.t, width: xb - xa, height: H - P.t - P.b, fill: 'var(--accent2)', opacity: .15 }, svg), tt = sv('title', {}, rc); tt.textContent = b.label; var nch = Math.floor((xb - xa - 6) / 5.4); if (nch >= 5) { var lt = sv('text', { x: xa + 3, y: H - P.b - 4, class: 'ev' }, svg); lt.textContent = b.label.length > nch ? b.label.slice(0, nch - 1) + '\u2026' : b.label; } });
     (cfg.yTicks || niceTicks(y0, y1, Math.max(3, Math.round((H - P.t - P.b) / 42)))).forEach(function (t) { sv('line', { x1: P.l, x2: W - P.r, y1: sy(t), y2: sy(t), stroke: 'var(--c-grid)', 'stroke-width': 1 }, svg);
       var tx = sv('text', { x: P.l - 5, y: sy(t) + 3, 'text-anchor': 'end' }, svg); tx.textContent = cfg.yFmt ? cfg.yFmt(t) : t; });
     if (hasR) (cfg.y2Ticks || niceTicks(y20, y21, 4)).forEach(function (t) { var tx = sv('text', { x: W - P.r + 5, y: sy2(t) + 3, 'text-anchor': 'start' }, svg); tx.setAttribute('style', 'fill:' + (cfg.axis2Color || 'var(--accent2)')); tx.textContent = cfg.yFmt2 ? cfg.yFmt2(t) : t; });
@@ -590,7 +604,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     rng.addEventListener('change', savePrefs);
     ev.addEventListener('change', function () { S.showEvents = ev.checked; savePrefs(); onChange(); });
     return h('div', { class: 'card ctl' }, [h('span', { class: 'lbl sb-hide' }, ['Detail']), h('span', { class: 'sub sb-hide' }, ['points']), rng, h('span', { class: 'sub sb-hide' }, ['trend']), val,
-      h('label', { class: 'sub', style: 'display:flex;align-items:center;gap:6px;margin-left:8px' }, [ev, 'Events'])]); }
+      h('label', { class: 'sub', style: 'display:flex;align-items:center;gap:6px;margin-left:8px' }, [ev, 'Events & trips'])]); }
 
   // ================= Today =================
   function stepDay(n) { var d = addDays(S.date, n); if (S.byDate[d]) { S.date = d; renderToday(); renderSleep(); } }
@@ -673,7 +687,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       var b1 = !!m.bin, b2 = !!(m2 && m2.bin), ser = b1 ? [{ pts: raw, color: 'var(--teal)', width: 1.3, step: true }, { pts: [], color: 'var(--teal)' }] : [{ pts: raw, color: k2 && !on ? 'var(--teal)' : 'var(--ink-3)', width: k2 && !on ? 1.7 : 1, dots: on, noLine: on, opacity: .8 }, { pts: on ? smr : [], color: 'var(--teal)', width: 2.6 }];
       if (k2) { if (b2) { ser.push({ pts: raw2, color: 'var(--accent2)', width: 1.3, step: true, axis2: true }); ser.push({ pts: [], color: 'var(--accent2)', axis2: true }); } else { ser.push({ pts: raw2, color: 'var(--accent2)', width: on ? 1 : 1.7, dots: on, noLine: on, opacity: .85, axis2: true, dotOp: .4 }); ser.push({ pts: on ? sm2.filter(inWin) : [], color: 'var(--accent2)', width: 2.6, axis2: true }); } }
       var ynAxis = function (v) { return v === 1 ? 'Yes' : v === 0 ? 'No' : ''; };
-      lineChart(c.host, { zoomKey: 'trend', onDraw: function (g_) { showPop(g_); }, breakGap: 3, pinX: S.pickDay, onPick: function (day) { S.pickDay = day; paint(); }, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? (b2 ? ynAxis : axisFmt(m2)) : null, y2Ticks: b2 ? [0, 1] : null, y2Min: b2 ? -0.08 : null, y2Max: b2 ? 1.08 : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
+      lineChart(c.host, { xBands: tripBands(), zoomKey: 'trend', onDraw: function (g_) { showPop(g_); }, breakGap: 3, pinX: S.pickDay, onPick: function (day) { S.pickDay = day; paint(); }, h: 300, series: ser, axis2Color: 'var(--accent2)', yFmt2: m2 ? (b2 ? ynAxis : axisFmt(m2)) : null, y2Ticks: b2 ? [0, 1] : null, y2Min: b2 ? -0.08 : null, y2Max: b2 ? 1.08 : null, bands: bands, markers: evMarkers(), xFmt: fmtShort,
         yMin: b1 ? -0.08 : bands.length ? 0 : undefined, yMax: b1 ? 1.08 : bands.length ? 100 : undefined, yTicks: b1 ? [0, 1] : null, yFmt: b1 ? ynAxis : axisFmt(m),
         readSeries: 0, readout: function (x, y) { var s2 = sm.find(function (q) { return q[0] === x; }), t = fmtShort(x) + '  ' + fmtv(y) + (on && !b1 && s2 && s2[1] != null ? '  (trend ' + fmtv(s2[1]) + ')' : '');
           if (k2) { var v2 = map2[x]; t += '   |   ' + m2.l + ' ' + (v2 == null ? '-' : fmtv2(v2)) + (on && !b2 && sm2m[x] != null ? '  (trend ' + fmtv2(sm2m[x]) + ')' : ''); } c.read.textContent = t; } }); };
@@ -686,6 +700,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       keys.forEach(function (kk) { var mm = MK[kk], v = D[kk], sv_ = on ? (smoothPts(series(kk), S.sm).find(function (q) { return q[0] === day; }) || [])[1] : null, f = function (x) { return mm.f === hm || mm.f === clock ? mm.f(x) : String(mm.f(x)); };
         pop.appendChild(h('div', { class: 'pr' }, [h('span', {}, [mm.l]), h('span', { class: 'n' }, [v == null ? 'no data' : f(v) + (mm.u && mm.f !== hm && mm.f !== clock ? ' ' + mm.u : '') + (sv_ != null && !mm.bin ? '  (trend ' + f(sv_) + ')' : '')])])); });
       var span = dayNum(S.dates[S.dates.length - 1]) - Math.max(winCut, dayNum(S.dates[0])), tol = Math.max(0, Math.ceil(10 / Math.max(100, geo.W - 50) * span)), evs = S.events.filter(function (e) { return Math.abs(dayNum(e.date) - day) <= tol; }); if (evs.length) pop.appendChild(h('div', { class: 'ps' }, [h('div', { class: 'pl' }, [evs.length > 1 ? 'Events nearby' : 'Event']), h('div', {}, [evs.map(function (e) { return fmtShort(dayNum(e.date)) + '  ' + e.label; }).join('\n')])])); if (evs.length) pop.lastChild.lastChild.style.whiteSpace = 'pre-line';
+      var tpo = tripOn(ds); if (tpo) pop.appendChild(h('div', { class: 'ps' }, [h('div', { class: 'pl' }, ['Away']), h('div', {}, [tpo.place + '  (' + tpo.tz.replace('_', ' ') + ')'])]));
       var acts = (S.actByDate[ds] || []).slice().sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; }), isAct = keys.some(function (kk) { return MK[kk].g === 'Training' || MK[kk].g === 'Activity'; });
       if (acts.length || isAct) { var sec = h('div', { class: 'ps' }, [h('div', { class: 'pl' }, [acts.length > 1 ? 'Activities that day' : 'Activity that day'])]);
         if (!acts.length) sec.appendChild(h('div', {}, ['No recorded activity']));
@@ -803,7 +818,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
         if (mm.bin) return pts.map(function (q) { return [q[0], q[1] >= .5 ? 1 : 0]; }); var v = pts.map(function (q) { return q[1]; }).filter(function (x) { return x != null; }), lo = Math.min.apply(null, v), hi = Math.max.apply(null, v); return pts.map(function (q) { return [q[0], q[1] == null ? null : hi > lo ? (q[1] - lo) / (hi - lo) : .5]; }); }),
       cut = Math.max.apply(null, zs.map(function (q) { return q.length ? q[0][0] : 0; }));
     tc.legend.innerHTML = tlLegend();
-    lineChart(tc.host, { zoomKey: 'cmpt', breakGap: 3, h: 280, yMin: -0.06, yMax: 1.06, yTicks: [0, .25, .5, .75, 1], series: zs.map(function (q, i_) { return { pts: q.filter(function (r_) { return r_[0] >= cut; }), color: tlColor(i_), width: i_ === 1 ? 2.2 : 2, step: !!MK[keys[i_]].bin }; }), markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return v === 0 ? '0' : v === 1 ? '1' : Number(v.toFixed(2)); },
+    lineChart(tc.host, { xBands: tripBands(), zoomKey: 'cmpt', breakGap: 3, h: 280, yMin: -0.06, yMax: 1.06, yTicks: [0, .25, .5, .75, 1], series: zs.map(function (q, i_) { return { pts: q.filter(function (r_) { return r_[0] >= cut; }), color: tlColor(i_), width: i_ === 1 ? 2.2 : 2, step: !!MK[keys[i_]].bin }; }), markers: evMarkers(), xFmt: fmtShort, yFmt: function (v) { return v === 0 ? '0' : v === 1 ? '1' : Number(v.toFixed(2)); },
       readSeries: 0, readout: function (x) { tc.read.textContent = fmtShort(x) + '  ' + keys.map(function (k_, i_) { var mm = MK[k_], v = orig[k_][x]; return (i_ === 0 ? 'X ' : i_ === 1 ? 'Y ' : 'M' + (i_ + 1) + ' ') + (v == null ? '-' : mm.f === hm || mm.f === clock || mm.bin ? mm.f(v) : String(mm.f(v)) + (mm.u ? ' ' + mm.u : '')); }).join('   '); } });
     };
     paintT();
@@ -863,9 +878,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     // around an event
     var ec = h('div', { class: 'card', style: 'margin-bottom:10px;grid-column:1/-1' }); cols.appendChild(ec);
     ec.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['What changed around an event?']));
-    if (!S.events.length) { ec.appendChild(h('div', { class: 'empty' }, ['Add life events on the Log tab, such as when you met Aiza, then see how HRV, sleep and resting HR differ before and after.'])); return; }
-    if (!S.evSel || !S.events.some(function (e) { return e.id === S.evSel; })) S.evSel = S.events[0].id; var ev = S.events.find(function (e) { return e.id === S.evSel; });
-    var es = h('select', {}); S.events.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (e) { var o = h('option', { value: e.id }, [fmtDay(e.date) + '  ' + e.label]); if (e.id === S.evSel) o.selected = true; es.appendChild(o); }); es.addEventListener('change', function () { S.evSel = es.value; renderCompare(); });
+    if (!compEvents().length) { ec.appendChild(h('div', { class: 'empty' }, ['Add life events on the Log tab, such as when you met Aiza, then see how HRV, sleep and resting HR differ before and after.'])); return; }
+    if (!S.evSel || !compEvents().some(function (e) { return e.id === S.evSel; })) S.evSel = compEvents()[0].id; var ev = compEvents().find(function (e) { return e.id === S.evSel; });
+    var es = h('select', {}); compEvents().slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (e) { var o = h('option', { value: e.id }, [fmtDay(e.date) + '  ' + e.label]); if (e.id === S.evSel) o.selected = true; es.appendChild(o); }); es.addEventListener('change', function () { S.evSel = es.value; renderCompare(); });
     // window slider: the table keeps one row per measure, so bars move smoothly as the slider moves; rows re-sort when it is released
     if (S.evWin < 7 || S.evWin > 365) S.evWin = 60;
     var wv = h('span', { class: 'val num', style: 'min-width:150px;text-align:right;font-weight:600' }), wr = h('input', { type: 'range', min: 7, max: 365, step: 1, value: S.evWin, 'aria-label': 'Days either side of the event', style: 'flex:1;min-width:140px' });
@@ -898,7 +913,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 
 
   // ================= Heatmap =================
-  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'under_pint_7d', 'mood', 'stress', 'energy'];
+  var HEAT_ROWS = ['sleep_score', 'recovery_index', 'movement_index', 'avg_hrv', 'sleep_rhr', 'total_sleep_min', 'efficiency', 'restorative_pct', 'bedtime', 'steps', 'run_km_28d', 'active_min_7d', 'load_28d', 'under_pint_7d', 'away', 'mood', 'stress', 'energy'];
   var BANDED = ['sleep_score', 'recovery_index', 'movement_index', 'total_sleep_min', 'time_in_bed_min', 'restorative_pct', 'efficiency', 'temp_dev_c'];
   // z is the distance from the measure's own average in standard deviations. better: 1 high is good, -1 high is bad, otherwise neutral.
   function heatFill(z, better) { var a = Math.min(1, 0.12 + Math.abs(z) / 2.2 * 0.88);
@@ -978,14 +993,15 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 
     // --- always-on strip: sleep, recovery, movement and whether there was an activity, day by day
     var sc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), sread = h('div', { class: 'read num' }), sp = pinned(sc, 'Sleep, recovery, movement, activity and drinking, day by day', sread); sc.setAttribute('data-key', 'strip'); deck.appendChild(sc);
-    var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY'], ['under_pint', 'UNDER PINT']];
+    var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY'], ['under_pint', 'UNDER PINT'], ['away', 'AWAY']];
     var sLab = 84, sTop = 26, sRh = 24, sH = sTop + SR.length * sRh + 4; sp.lab.style.width = sLab + 'px'; var sAvail = sp.wrap.clientWidth || 240, scw = Math.max(6, Math.floor(sAvail / days.length)), sW = scw * days.length + 4;
     var ssvg = sv('svg', { viewBox: '0 0 ' + sW + ' ' + sH, width: sW, height: sH, class: 'hm' }); sp.wrap.appendChild(ssvg); link(sp.wrap, dayNum(days[0]), scw); var slsvg = sv('svg', { viewBox: '0 0 ' + sLab + ' ' + sH, width: sLab, height: sH, class: 'hm' }); sp.lab.appendChild(slsvg);
     var stat = {}; SR.slice(0, 3).forEach(function (r) { var vv = days.map(function (d) { return S.D[d][r[0]]; }).filter(function (x) { return x != null; }), mu = avg(vv); stat[r[0]] = { mu: mu, sg: sd(vv, mu) || 1 }; });
     var lmS = '', lxS = -99; days.forEach(function (d, i) { var tg = monthTag(dayNum(d)), x = i * scw; if (tg !== lmS && x - lxS > 46) { var t = sv('text', { x: x, y: 10 }, ssvg); t.textContent = tg; lxS = x; } lmS = tg; });
     SR.forEach(function (r, ri) { var tx = sv('text', { x: sLab - 8, y: sTop + ri * sRh + sRh / 2 + 3, 'text-anchor': 'end' }, slsvg); tx.textContent = r[1];
       days.forEach(function (d, i) { var v = S.D[d][r[0]], f, extra = {};
-        if (r[0] === 'under_pint') { if (v === 1) f = ['var(--opt)', .85]; else if (v === 0) f = ['var(--bad)', .85]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+        if (r[0] === 'away') { f = v === 1 ? ['var(--accent2)', .9] : ['var(--fill)', 1]; }
+        else if (r[0] === 'under_pint') { if (v === 1) f = ['var(--opt)', .85]; else if (v === 0) f = ['var(--bad)', .85]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
         else if (r[0] === 'activity') { if (v === 1) f = ['var(--teal)', 1]; else if (v === 0) f = ['var(--fill)', 1]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
         else if (v == null) f = ['var(--fill)', 1]; else if (useBandsMode) f = [COLORS[scoreLevel(v)], 1]; else f = heatFill((v - stat[r[0]].mu) / stat[r[0]].sg, 1);
         var at = { x: i * scw + (extra.stroke ? .5 : 0), y: sTop + ri * sRh + 1, width: scw - 1, height: sRh - 2, rx: 2.5, fill: f[0], 'fill-opacity': f[1] }; for (var k in extra) at[k] = extra[k]; sv('rect', at, ssvg); }); });
@@ -994,7 +1010,8 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     function sMove(ev) { var r = ssvg.getBoundingClientRect(), k = sW / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, i = Math.floor(x / scw), ri = Math.floor((y - sTop) / sRh);
       if (i < 0 || i >= days.length || ri < 0 || ri >= SR.length) { shov.setAttribute('opacity', 0); return; } var d = days[i]; shov.setAttribute('x', i * scw); shov.setAttribute('y', sTop + ri * sRh + 1); shov.setAttribute('opacity', 1);
       var D = S.D[d], row = S.byDate[d] || {}, pick = SR[ri][0], txt;
-      if (pick === 'under_pint') txt = D.under_pint == null ? 'not logged' : D.under_pint ? 'under a pint' : 'over a pint';
+      if (pick === 'away') { var tpd = tripOn(d); txt = tpd ? 'away: ' + tpd.place : 'at home'; }
+      else if (pick === 'under_pint') txt = D.under_pint == null ? 'not logged' : D.under_pint ? 'under a pint' : 'over a pint';
       else if (pick === 'activity') { var al = S.actByDate[d] || []; txt = D.activity == null ? 'no activity source for this day' : D.activity ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity recorded'; txt = 'Activity: ' + txt; }
       else { var v = D[pick], lv = band(row, pick); txt = SR[ri][1].charAt(0) + SR[ri][1].slice(1).toLowerCase() + ': ' + (v == null ? 'no data' : v + (lv !== 'none' ? '  ' + LABEL[lv] : '')); }
       sread.textContent = fmtDay(d) + '  ' + txt; }
@@ -1108,7 +1125,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var wLegend = function () { return '<span><i style="background:var(--teal)"></i>Running</span><span><i style="background:var(--accent2)"></i>Riding</span>' + (S.sm >= 1.5 ? '<span>' + smoothName(S.sm) + '</span>' : ''); };
     var wc = chartCard('Weekly distance (km)', wLegend()); right.appendChild(wc);
     paintW = function () { var on = S.sm >= 1.5; wc.legend.innerHTML = wLegend();
-      lineChart(wc.host, { zoomKey: 'week', minSpan: 28, breakGap: 3, h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wd, S.sm) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wr, S.sm) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
+      lineChart(wc.host, { xBands: tripBands(), zoomKey: 'week', minSpan: 28, breakGap: 3, h: 220, series: [{ pts: wd, color: 'var(--accent2)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wd, S.sm) : [], color: 'var(--accent2)', width: 2.2 }, { pts: wr, color: 'var(--teal)', width: 1, dots: on, noLine: on, opacity: .7 }, { pts: on ? smoothPts(wr, S.sm) : [], color: 'var(--teal)', width: 2.4 }], yMin: 0, markers: evMarkers(), xFmt: fmtShort, yFmt: r0,
         readSeries: 2, readout: function (x, y) { var b = wd.find(function (q) { return q[0] === x; }); wc.read.textContent = 'w/c ' + fmtShort(x) + '  run ' + r1(y) + ' km' + (b ? '  ride ' + r1(b[1]) + ' km' : ''); } }); };
     paintW();
     var z2 = runs.filter(function (a) { return a.extra && a.extra.zone2_pace_s_km; }).sort(function (a, b) { return a.start_time < b.start_time ? -1 : 1; });
@@ -1166,14 +1183,34 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     if (!S.events.length) lc.appendChild(h('div', { class: 'empty' }, ['No events yet.']));
     S.events.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).forEach(function (e) { var del = h('button', { class: 'x', 'aria-label': 'Delete event', type: 'button' }, ['×']); del.addEventListener('click', function () { if (!confirm('Delete "' + e.label + '"?')) return; supa.from('health_events').delete().eq('id', e.id).then(function (res) { if (res.error) { toast('Could not delete'); return; } S.events = S.events.filter(function (x) { return x.id !== e.id; }); renderLog(); }); });
       lc.appendChild(h('div', { style: 'display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--hair)' }, [h('span', { class: 'num sub', style: 'min-width:92px' }, [e.date]), h('span', { class: 'src', style: 'margin:0' }, [e.kind]), h('span', { style: 'flex:1;font-size:13px' }, [e.label]), del])); });
+    // trips
+    var TZS = ['Europe/London', 'Europe/Dublin', 'Europe/Lisbon', 'Europe/Madrid', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome', 'Europe/Zurich', 'Europe/Zagreb', 'Europe/Athens', 'Europe/Istanbul', 'Atlantic/Reykjavik', 'Africa/Cairo', 'Africa/Nairobi', 'Africa/Johannesburg', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Singapore', 'Asia/Makassar', 'Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Seoul', 'Asia/Tokyo', 'Australia/Sydney', 'Pacific/Auckland', 'America/New_York', 'America/Toronto', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Mexico_City', 'America/Sao_Paulo'];
+    var tcard = h('div', { class: 'card', style: 'margin-bottom:10px' }); right.appendChild(tcard); tcard.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:4px' }, ['Add a trip']));
+    tcard.appendChild(h('div', { class: 'sub', style: 'margin-bottom:8px;line-height:1.4' }, ['Used to shade trips on the charts, add "away" as a measure, and read sleep times in the time zone you actually slept in. Nights are dated by the day you wake, so the night before you leave still counts as home.']));
+    var tpl = h('input', { type: 'text', placeholder: 'Place, e.g. Italy' }), tps = h('input', { type: 'date', value: todayLocal() }), tpe = h('input', { type: 'date', value: todayLocal() }), tpz = h('select', {}), tpo = h('input', { type: 'text', placeholder: 'Other time zone, e.g. Asia/Colombo', style: 'margin-top:6px' });
+    TZS.forEach(function (z_) { tpz.appendChild(h('option', { value: z_ }, [z_.replace('_', ' ')])); });
+    tcard.appendChild(h('div', { style: 'margin-bottom:8px' }, [tpl])); tcard.appendChild(h('div', { class: 'formrow' }, [h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:3px' }, ['From']), tps]), h('div', {}, [h('div', { class: 'lbl', style: 'margin-bottom:3px' }, ['To']), tpe])]));
+    tcard.appendChild(h('div', { style: 'margin-bottom:8px' }, [h('div', { class: 'lbl', style: 'margin-bottom:3px' }, ['Time zone']), tpz, tpo]));
+    function setTz(a_, b_, tz_) { return supa.from('health_uh_daily').update({ timezone: tz_ }).gt('date', a_).lte('date', b_); }
+    var tadd = h('button', { class: 'pill', type: 'button', style: 'width:100%' }, ['Add trip']); tadd.addEventListener('click', function () { var tz_ = (tpo.value || '').trim() || tpz.value;
+      if (!tpl.value.trim() || !tps.value || !tpe.value || tpe.value < tps.value) { toast('Add a place and valid dates'); return; } try { new Intl.DateTimeFormat('en-GB', { timeZone: tz_ }); } catch (e) { toast('Unknown time zone'); return; }
+      supa.from('health_trips').insert({ start_date: tps.value, end_date: tpe.value, place: tpl.value.trim(), tz: tz_ }).select().then(function (res) { if (res.error) { toast('Could not add: ' + res.error.message); return; } S.trips = S.trips.concat(res.data).sort(function (x, y) { return x.start_date < y.start_date ? -1 : 1; });
+        setTz(tps.value, tpe.value, tz_).then(function () {}); applyTz(); buildTable(); toast('Trip added'); renderLog(); }); }); tcard.appendChild(tadd);
+    var tl2 = h('div', { class: 'card' }); right.appendChild(tl2); tl2.appendChild(h('div', { class: 'lbl', style: 'margin-bottom:6px' }, ['Trips']));
+    if (!S.trips.length) tl2.appendChild(h('div', { class: 'empty' }, ['No trips yet.']));
+    S.trips.slice().sort(function (x, y) { return x.start_date < y.start_date ? 1 : -1; }).forEach(function (t) { var del = h('button', { class: 'x', 'aria-label': 'Delete trip', type: 'button' }, ['\u00D7']);
+      del.addEventListener('click', function () { if (!confirm('Delete "' + t.place + '"?')) return; supa.from('health_trips').delete().eq('id', t.id).then(function (res) { if (res.error) { toast('Could not delete'); return; } S.trips = S.trips.filter(function (z_) { return z_.id !== t.id; });
+        var chain = setTz(t.start_date, t.end_date, 'Europe/London'); S.trips.forEach(function (o) { if (o.start_date <= t.end_date && o.end_date >= t.start_date) chain = chain.then(function () { return setTz(o.start_date, o.end_date, o.tz); }); }); applyTz(); buildTable(); renderLog(); }); });
+      tl2.appendChild(h('div', { style: 'display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--hair)' }, [h('span', { class: 'num sub', style: 'min-width:150px;font-size:11px' }, [t.start_date + ' to ' + t.end_date]), h('span', { style: 'flex:1;font-size:13px;min-width:0' }, [t.place, h('div', { class: 'sub', style: 'font-size:10px' }, [t.tz.replace('_', ' ')])]), del])); });
   }
 
   // ================= Data + shell =================
   function loadAll() {
     return Promise.all([supa.from('health_uh_daily').select('*').order('date', { ascending: true }).range(0, 4999), supa.from('health_activities').select('*').order('start_time', { ascending: false }).range(0, 4999),
-      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999), supa.from('health_drinks').select('*').range(0, 4999)]).then(function (rs) {
+      supa.from('health_events').select('*').order('date', { ascending: true }).range(0, 999), supa.from('health_checkins').select('*').range(0, 4999), supa.from('health_drinks').select('*').range(0, 4999), supa.from('health_trips').select('*').order('start_date', { ascending: true }).range(0, 499)]).then(function (rs) {
       if (rs[0].error) throw rs[0].error; if (rs[1].error) throw rs[1].error;
-      S.daily = rs[0].data || []; S.byDate = {}; S.daily.forEach(function (r) { S.byDate[r.date] = r; }); S.acts = rs[1].data || [];
+      S.trips = rs[5].error ? [] : (rs[5].data || []);
+      S.daily = rs[0].data || []; S.daily.forEach(function (r) { r._tz0 = r.timezone; }); applyTz(); S.byDate = {}; S.daily.forEach(function (r) { S.byDate[r.date] = r; }); S.acts = rs[1].data || [];
       S.events = rs[2].error ? [] : (rs[2].data || []); S.checkins = {}; (rs[3].error ? [] : (rs[3].data || [])).forEach(function (c) { S.checkins[c.date] = c; });
       S.drinks = {}; (rs[4].error ? [] : (rs[4].data || [])).forEach(function (c) { S.drinks[c.date] = c.over_pint; });
       buildTable(); var withSleep = S.daily.filter(function (r) { return r.sleep_score != null; }); S.date = (withSleep.length ? withSleep[withSleep.length - 1] : S.daily[S.daily.length - 1] || {}).date || todayLocal();

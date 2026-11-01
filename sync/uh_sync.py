@@ -94,6 +94,10 @@ class Supa:
                 return out
             offset += 1000
 
+    def trips(self):
+        s, body = http("GET", f"{self.url}/health_trips?select=start_date,end_date,tz", self.h)
+        return body if s == 200 and isinstance(body, list) else []
+
     def upsert(self, table, rows, conflict):
         for i in range(0, len(rows), 25):
             chunk = rows[i:i + 25]
@@ -101,6 +105,16 @@ class Supa:
             s, body = http("POST", f"{self.url}/{table}?on_conflict={conflict}", h, chunk)
             if s not in (200, 201, 204):
                 raise SystemExit(f"Upsert into {table} failed: HTTP {s} {body}")
+
+
+def trip_tz(trips, d):
+    """Timezone the night dated d was slept in. Nights are dated by the day you wake, so the night before
+    departure is at home and the night before the return day is abroad: start < d <= end."""
+    ds = d.isoformat() if hasattr(d, "isoformat") else d
+    for t in trips:
+        if t["start_date"] < ds <= t["end_date"]:
+            return t["tz"]
+    return None
 
 
 def daterange(a, b):
@@ -128,6 +142,7 @@ def main():
     refresh = int(os.environ.get("REFRESH_DAYS", "3"))
     today = dt.datetime.now(HERE_TZ).date()
 
+    trips = supa.trips()
     have = supa.existing_dates()
     wanted = [d for d in daterange(start, today)
               if d.isoformat() not in have or (today - d).days < refresh]
@@ -142,6 +157,7 @@ def main():
             print(f"  {d} failed: HTTP {s}", flush=True)
             continue
         row, n, ok = extract_obj(d.isoformat(), body)
+        row["timezone"] = trip_tz(trips, d) or row.get("timezone") or "Europe/London"
         daily.append(prep_daily(row))
         if ok and (n["hr"] or n["hrv"] or n["temp"] or n["stages"]):
             night.append(n)
