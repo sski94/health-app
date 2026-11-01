@@ -118,6 +118,11 @@ svg.spark { width: 64px; height: 20px; flex: none; }
 .stickybar .ctl input[type=range] { min-width: 70px; height: 20px; }
 @media (max-width: 899px) { .sbrow select { font-size: 16px; height: 32px; } }
 @media (max-height: 520px) and (orientation: landscape) { .stickybar { position: static; } }
+.deck { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.deck > .card { margin: 0 !important; -webkit-touch-callout: none; position: relative; }
+.deck > .card.dragging { z-index: 30; box-shadow: 0 14px 36px rgba(0,0,0,.25); cursor: grabbing; }
+.grip { color: var(--ink-3); font: 700 13px var(--font-num); letter-spacing: -2px; margin-right: 8px; cursor: grab; -webkit-user-select: none; user-select: none; padding: 2px 4px; touch-action: none; display: inline-block; }
+body.sorting, body.sorting * { -webkit-user-select: none; user-select: none; cursor: grabbing; }
 .rklist { display: block; }
 .rk { display: grid; grid-template-columns: minmax(0, 1fr) 84px 32px; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--hair); cursor: pointer; }
 .rk.sel { background: var(--fill); border-radius: 8px; }
@@ -893,16 +898,18 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   function weekCols(range) { var last = dayNum(S.dates[S.dates.length - 1]), first = dayNum(S.dates[0]), startN = range ? Math.max(first, last - range) : first, firstMon = startN - ((startN + 3) % 7), lastMon = last - ((last + 3) % 7), cols = [];
     for (var n = firstMon; n <= lastMon; n += 7) cols.push(n); return cols; }
   function monthTag(n) { return new Date(n * 864e5).toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' }); }
-  function heatEventLines(svg, cols, x0, cw, y0, y1) { if (!S.showEvents) return;
+  // event names above a heatmap: up to two rows where there is room, shortened or dropped rather than overprinted; the full name is in the tooltip
+  function evLabels(svg, items, y0) { var vb = (svg.getAttribute('viewBox') || '0 0 9999 0').split(' '), Wd = +vb[2], rowsN = y0 >= 26 ? 2 : 1, ends = []; for (var r = 0; r < rowsN; r++) ends.push(-1e9);
+    items.sort(function (a, b) { return a.x - b.x; }).forEach(function (it) { var done = false; [22, 10].forEach(function (n) { if (done) return; var lab = it.label.length > n ? it.label.slice(0, n - 1) + '…' : it.label, w = lab.length * 5.4 + 4; if (it.x + 3 + w > Wd) return;
+      for (var r = 0; r < rowsN; r++) { if (it.x + 3 > ends[r] + 3) { ends[r] = it.x + 3 + w; var t = sv('text', { x: it.x + 3, y: y0 - 2 - r * 9, class: 'ev' }, svg); t.textContent = lab; var tt = sv('title', {}, t); tt.textContent = it.label; done = true; return; } } }); }); }
+  function heatEventLines(svg, cols, x0, cw, y0, y1) { if (!S.showEvents) return; var items = [];
     S.events.forEach(function (e) { var f = (dayNum(e.date) - cols[0]) / 7; if (f < 0 || f >= cols.length) return; var x = x0 + f * cw;
-      sv('line', { x1: x, x2: x, y1: y0, y2: y1, stroke: 'var(--accent2)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, svg);
-      var t = sv('text', { x: x + 3, y: y0 - 2, class: 'ev' }, svg); t.textContent = e.label.length > 22 ? e.label.slice(0, 21) + '…' : e.label; }); }
+      sv('line', { x1: x, x2: x, y1: y0, y2: y1, stroke: 'var(--accent2)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, svg); items.push({ x: x, label: e.label }); }); evLabels(svg, items, y0); }
   function weekLevel(r_days, key) { // dominant Ultrahuman level across the days of a week (opt=2, good=1, bad=0)
     var vals = []; r_days.forEach(function (d) { var lv = band(S.byDate[d] || {}, key); if (lv !== 'none') vals.push(lv === 'opt' ? 2 : lv === 'good' ? 1 : 0); }); if (vals.length < 3) return 'none'; var m = avg(vals); return m >= 1.5 ? 'opt' : m >= 0.5 ? 'good' : 'bad'; }
-  function heatEventLinesD(svg, d0, n, cw, y0, y1) { if (!S.showEvents) return;
+  function heatEventLinesD(svg, d0, n, cw, y0, y1) { if (!S.showEvents) return; var items = [];
     S.events.forEach(function (e) { var f = dayNum(e.date) - d0; if (f < 0 || f >= n) return; var x = f * cw + cw / 2;
-      sv('line', { x1: x, x2: x, y1: y0, y2: y1, stroke: 'var(--accent2)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, svg);
-      var t = sv('text', { x: x + 3, y: y0 - 2, class: 'ev' }, svg); t.textContent = e.label.length > 22 ? e.label.slice(0, 21) + '\u2026' : e.label; }); }
+      sv('line', { x1: x, x2: x, y1: y0, y2: y1, stroke: 'var(--accent2)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, svg); items.push({ x: x, label: e.label }); }); evLabels(svg, items, y0); }
   function renderHeat() {
     var p = $('p-heat'), HS = S.heat; p.innerHTML = '';
     p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Heatmap']), h('div', { class: 'sub' }, ['Everything over time at a glance'])])]));
@@ -922,46 +929,49 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     // --- four full calendars, always shown: sleep, recovery, movement, activity (one cell per day, one column per week)
     var rangeDays = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; });
     function calCard(key, title) {
-      var card = h('div', { class: 'card chartcard', style: 'margin-bottom:0' }), read = h('div', { class: 'read num' }), pn = pinned(card, title, read), foot = h('div', { class: 'swatches' }), isAct = key === 'activity';
+      var card = h('div', { class: 'card chartcard', style: 'margin-bottom:0' }), read = h('div', { class: 'read num' }), pn = pinned(card, title, read), foot = h('div', { class: 'swatches' }), isAct = key === 'activity', isDrink = key === 'over_pint';
       card.appendChild(foot);
       card.draw = function () {
-        var gp = 2, lw = 28, tp = 30; pn.lab.style.width = lw + 'px';
+        var gp = 2, lw = 28, tp = 38; pn.lab.style.width = lw + 'px';
         var avail = pn.wrap.clientWidth || 240, cs = Math.max(8, Math.min(16, Math.floor(avail / cols.length) - gp)), pitch = cs + gp, W = cols.length * pitch + 4, H = tp + 7 * pitch + 2;
         var ls = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H, width: lw, height: H, class: 'hm' }); pn.lab.appendChild(ls); var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, class: 'hm' }); pn.wrap.appendChild(svg);
         ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach(function (t, i) { if (!t) return; var tx = sv('text', { x: lw - 5, y: tp + i * pitch + cs - 2, 'text-anchor': 'end' }, ls); tx.textContent = t; });
         var lm = '', lx = -99; cols.forEach(function (n, ci) { var tg = monthTag(n + 3), x = ci * pitch; if (tg !== lm && x - lx > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lx = x; } lm = tg; });
         var vv = rangeDays.map(function (d) { return S.D[d][key]; }).filter(function (x) { return x != null; }), mu = avg(vv), sg = sd(vv, mu) || 1, cells = [], cnt = { opt: 0, good: 0, bad: 0, n: 0 }, act = { yes: 0, no: 0 };
         cols.forEach(function (n, ci) { for (var i = 0; i < 7; i++) { var d = dayStr(n + i), D = S.D[d]; if (!D || n + i > lastDay) continue; var v = D[key], f, ex = null, inR = !HS.range || n + i >= lastDay - HS.range;
-          if (isAct) { if (v === 1) { f = ['var(--teal)', 1]; if (inR) act.yes++; } else if (v === 0) { f = ['var(--fill)', 1]; if (inR) act.no++; } else { f = ['none', 0]; ex = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+          if (isDrink) { if (v === 1) { f = ['var(--bad)', .85]; if (inR) act.yes++; } else if (v === 0) { f = ['var(--opt)', .85]; if (inR) act.no++; } else { f = ['none', 0]; ex = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+          else if (isAct) { if (v === 1) { f = ['var(--teal)', 1]; if (inR) act.yes++; } else if (v === 0) { f = ['var(--fill)', 1]; if (inR) act.no++; } else { f = ['none', 0]; ex = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
           else if (v == null) f = ['var(--fill)', 1]; else { var lv = scoreLevel(v); if (inR) { cnt[lv]++; cnt.n++; } f = useBandsMode ? [COLORS[lv], 1] : heatFill((v - mu) / sg, 1); }
           var at = { x: ci * pitch + (ex ? .5 : 0), y: tp + i * pitch + (ex ? .5 : 0), width: cs - (ex ? 1 : 0), height: cs - (ex ? 1 : 0), rx: 3, fill: f[0], 'fill-opacity': f[1] }; if (ex) for (var k in ex) at[k] = ex[k]; sv('rect', at, svg); cells.push({ x: ci * pitch, y: tp + i * pitch, d: d, v: v }); } });
         heatEventLines(svg, cols, 0, pitch, tp - 2, H - 2);
         var hv = sv('rect', { width: cs, height: cs, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg);
         function mv(ev) { var r = svg.getBoundingClientRect(), k = W / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, ci = Math.floor(x / pitch), ri = Math.floor((y - tp) / pitch);
           var c = cells.find(function (q) { return q.x === ci * pitch && q.y === tp + ri * pitch; }); if (!c) { hv.setAttribute('opacity', 0); return; } hv.setAttribute('x', c.x); hv.setAttribute('y', c.y); hv.setAttribute('opacity', 1);
-          if (isAct) { var al = S.actByDate[c.d] || []; read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no activity source' : c.v ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity'); }
+          if (isDrink) { read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'not logged' : c.v ? 'Over a pint' : 'Under a pint'); }
+          else if (isAct) { var al = S.actByDate[c.d] || []; read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no activity source' : c.v ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity'); }
           else { var lv = c.v == null ? 'none' : scoreLevel(c.v); read.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no data' : c.v + '  ' + LABEL[lv]); } }
         svg.addEventListener('pointermove', mv); svg.addEventListener('pointerdown', mv); setTimeout(function () { pn.wrap.scrollLeft = pn.wrap.scrollWidth; }, 0);
         var pc = function (x) { return cnt.n ? Math.round(x / cnt.n * 100) + '%' : '-'; };
-        foot.innerHTML = isAct ? '<i style="background:var(--teal)"></i>Activity<i style="background:var(--fill)"></i>None<i style="background:none;border:1px dashed var(--c-grid)"></i>No source<span style="margin-left:8px">Active on ' + act.yes + ' of ' + (act.yes + act.no) + ' recorded days' + (act.yes + act.no ? ' (' + Math.round(act.yes / (act.yes + act.no) * 100) + '%)' : '') + '</span>'
+        foot.innerHTML = isDrink ? '<i style="background:var(--opt)"></i>Under a pint<i style="background:var(--bad)"></i>Over a pint<i style="background:none;border:1px dashed var(--c-grid)"></i>Not logged<span style="margin-left:8px">Under a pint on ' + act.no + ' of ' + (act.yes + act.no) + ' logged days' + (act.yes + act.no ? ' (' + Math.round(act.no / (act.yes + act.no) * 100) + '%)' : '') + '</span>' : isAct ? '<i style="background:var(--teal)"></i>Activity<i style="background:var(--fill)"></i>None<i style="background:none;border:1px dashed var(--c-grid)"></i>No source<span style="margin-left:8px">Active on ' + act.yes + ' of ' + (act.yes + act.no) + ' recorded days' + (act.yes + act.no ? ' (' + Math.round(act.yes / (act.yes + act.no) * 100) + '%)' : '') + '</span>'
           : (useBandsMode ? '<i style="background:var(--opt)"></i>Optimal ' + pc(cnt.opt) + '<i style="background:var(--good)"></i>Good ' + pc(cnt.good) + '<i style="background:var(--bad)"></i>Needs attention ' + pc(cnt.bad) : RELSW + '<span style="margin-left:8px">Average ' + (mu == null ? '-' : Math.round(mu)) + '</span>');
       };
       return card;
     }
-    var fw = h('div', { class: 'cols c2', style: 'margin-bottom:10px' }); p.appendChild(fw);
-    [['sleep_score', 'Sleep'], ['recovery_index', 'Recovery'], ['movement_index', 'Movement'], ['activity', 'Activity (any Strava or Garmin activity)']].forEach(function (a) { var c = calCard(a[0], a[1]); fw.appendChild(c); c.draw(); });
-    fw.appendChild(h('div', { class: 'note', style: 'grid-column:1/-1;margin-top:0' }, ['Each square is one day, each column one week, Monday at the top. Activity covers Strava to 24 May 2026 and Garmin runs from 10 Aug 2026; dashed squares have no activity source.']));
+    var deck = h('div', { class: 'deck' }); p.appendChild(deck); var fw = deck;
+    [['sleep_score', 'Sleep'], ['recovery_index', 'Recovery'], ['movement_index', 'Movement'], ['activity', 'Activity (any Strava or Garmin activity)'], ['over_pint', 'Under a pint (drinking habit)']].forEach(function (a) { var c = calCard(a[0], a[1]); c.setAttribute('data-key', 'cal:' + a[0]); fw.appendChild(c); c.draw(); });
+    p.appendChild(h('div', { class: 'note', style: 'margin:-2px 0 10px' }, ['Each square is one day, each column one week, Monday at the top. Activity covers Strava to 24 May 2026 and Garmin runs from 10 Aug 2026; dashed squares have no activity source.']));
 
     // --- always-on strip: sleep, recovery, movement and whether there was an activity, day by day
-    var sc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), sread = h('div', { class: 'read num' }), sp = pinned(sc, 'Sleep, recovery, movement and activity, day by day', sread); p.appendChild(sc);
-    var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY']];
+    var sc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), sread = h('div', { class: 'read num' }), sp = pinned(sc, 'Sleep, recovery, movement, activity and drinking, day by day', sread); sc.setAttribute('data-key', 'strip'); deck.appendChild(sc);
+    var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY'], ['over_pint', 'UNDER PINT']];
     var sLab = 84, sTop = 26, sRh = 24, sH = sTop + SR.length * sRh + 4; sp.lab.style.width = sLab + 'px'; var sAvail = sp.wrap.clientWidth || 240, scw = Math.max(6, Math.floor(sAvail / days.length)), sW = scw * days.length + 4;
     var ssvg = sv('svg', { viewBox: '0 0 ' + sW + ' ' + sH, width: sW, height: sH, class: 'hm' }); sp.wrap.appendChild(ssvg); var slsvg = sv('svg', { viewBox: '0 0 ' + sLab + ' ' + sH, width: sLab, height: sH, class: 'hm' }); sp.lab.appendChild(slsvg);
     var stat = {}; SR.slice(0, 3).forEach(function (r) { var vv = days.map(function (d) { return S.D[d][r[0]]; }).filter(function (x) { return x != null; }), mu = avg(vv); stat[r[0]] = { mu: mu, sg: sd(vv, mu) || 1 }; });
     var lmS = '', lxS = -99; days.forEach(function (d, i) { var tg = monthTag(dayNum(d)), x = i * scw; if (tg !== lmS && x - lxS > 46) { var t = sv('text', { x: x, y: 10 }, ssvg); t.textContent = tg; lxS = x; } lmS = tg; });
     SR.forEach(function (r, ri) { var tx = sv('text', { x: sLab - 8, y: sTop + ri * sRh + sRh / 2 + 3, 'text-anchor': 'end' }, slsvg); tx.textContent = r[1];
       days.forEach(function (d, i) { var v = S.D[d][r[0]], f, extra = {};
-        if (r[0] === 'activity') { if (v === 1) f = ['var(--teal)', 1]; else if (v === 0) f = ['var(--fill)', 1]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+        if (r[0] === 'over_pint') { if (v === 1) f = ['var(--bad)', .85]; else if (v === 0) f = ['var(--opt)', .85]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+        else if (r[0] === 'activity') { if (v === 1) f = ['var(--teal)', 1]; else if (v === 0) f = ['var(--fill)', 1]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
         else if (v == null) f = ['var(--fill)', 1]; else if (useBandsMode) f = [COLORS[scoreLevel(v)], 1]; else f = heatFill((v - stat[r[0]].mu) / stat[r[0]].sg, 1);
         var at = { x: i * scw + (extra.stroke ? .5 : 0), y: sTop + ri * sRh + 1, width: scw - 1, height: sRh - 2, rx: 2.5, fill: f[0], 'fill-opacity': f[1] }; for (var k in extra) at[k] = extra[k]; sv('rect', at, ssvg); }); });
     heatEventLinesD(ssvg, dayNum(days[0]), days.length, scw, sTop - 2, sH - 3);
@@ -969,17 +979,18 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     function sMove(ev) { var r = ssvg.getBoundingClientRect(), k = sW / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, i = Math.floor(x / scw), ri = Math.floor((y - sTop) / sRh);
       if (i < 0 || i >= days.length || ri < 0 || ri >= SR.length) { shov.setAttribute('opacity', 0); return; } var d = days[i]; shov.setAttribute('x', i * scw); shov.setAttribute('y', sTop + ri * sRh + 1); shov.setAttribute('opacity', 1);
       var D = S.D[d], row = S.byDate[d] || {}, pick = SR[ri][0], txt;
-      if (pick === 'activity') { var al = S.actByDate[d] || []; txt = D.activity == null ? 'no activity source for this day' : D.activity ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity recorded'; txt = 'Activity: ' + txt; }
+      if (pick === 'over_pint') txt = D.over_pint == null ? 'not logged' : D.over_pint ? 'over a pint' : 'under a pint';
+      else if (pick === 'activity') { var al = S.actByDate[d] || []; txt = D.activity == null ? 'no activity source for this day' : D.activity ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity recorded'; txt = 'Activity: ' + txt; }
       else { var v = D[pick], lv = band(row, pick); txt = SR[ri][1].charAt(0) + SR[ri][1].slice(1).toLowerCase() + ': ' + (v == null ? 'no data' : v + (lv !== 'none' ? '  ' + LABEL[lv] : '')); }
       sread.textContent = fmtDay(d) + '  ' + txt; }
     ssvg.addEventListener('pointermove', sMove); ssvg.addEventListener('pointerdown', sMove); setTimeout(function () { sp.wrap.scrollLeft = sp.wrap.scrollWidth; }, 0);
-    sc.appendChild(h('div', { class: 'swatches', html: (useBandsMode ? BANDSW : RELSW) + '<span style="margin-left:10px"><i style="background:var(--teal)"></i> activity recorded <i style="background:var(--fill)"></i> none <i style="background:none;border:1px dashed var(--c-grid)"></i> no source for that day</span>' }));
+    sc.appendChild(h('div', { class: 'swatches', html: (useBandsMode ? BANDSW : RELSW) + '<span style="margin-left:10px"><i style="background:var(--teal)"></i> activity recorded, <b style="color:var(--opt)">green</b> = under a pint, <b style="color:var(--bad)">red</b> = over a pint <i style="background:var(--fill)"></i> none <i style="background:none;border:1px dashed var(--c-grid)"></i> no source for that day</span>' }));
     sc.appendChild(h('div', { class: 'note' }, ['Activity is any Strava or Garmin activity. Strava covers Feb 2025 to 24 May 2026; Garmin runs only since 10 Aug 2026, so rides after May are not recorded and the gap between is marked as no source.']));
 
     // --- overview: all measures by week
-    var oc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), oread = h('div', { class: 'read num' }), op = pinned(oc, 'All measures, week by week', oread); p.appendChild(oc);
+    var oc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), oread = h('div', { class: 'read num' }), op = pinned(oc, 'All measures, week by week', oread); oc.setAttribute('data-key', 'overview'); deck.appendChild(oc);
     var rows = HEAT_ROWS.filter(function (k) { return S.dates.some(function (d) { return S.D[d][k] != null; }); });
-    var labelW = 118, topPad = 28, rh = 21, Hd = topPad + rows.length * rh + 4; op.lab.style.width = labelW + 'px'; var avail = op.wrap.clientWidth || 240, cw = Math.max(9, Math.floor(avail / cols.length)), Wd = cw * cols.length + 4;
+    var labelW = 118, topPad = 38, rh = 21, Hd = topPad + rows.length * rh + 4; op.lab.style.width = labelW + 'px'; var avail = op.wrap.clientWidth || 240, cw = Math.max(9, Math.floor(avail / cols.length)), Wd = cw * cols.length + 4;
     var lsvg = sv('svg', { viewBox: '0 0 ' + labelW + ' ' + Hd, width: labelW, height: Hd, class: 'hm' }); op.lab.appendChild(lsvg); var svg = sv('svg', { viewBox: '0 0 ' + Wd + ' ' + Hd, width: Wd, height: Hd, class: 'hm' }); op.wrap.appendChild(svg); var info = [];
     var lastMonth = '', lastX = -99; cols.forEach(function (n, ci) { var tg = monthTag(n), x = ci * cw; if (tg !== lastMonth && x - lastX > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lastX = x; } lastMonth = tg; });
     rows.forEach(function (k, ri) {
@@ -1002,7 +1013,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var key = HS.key, mk = MK[key], cc = h('div', { class: 'card chartcard' }), cread = h('div', { class: 'read num' }), cwrap = h('div', { class: 'hscroll', style: 'flex:1;min-width:0' });
     var sel = metricSelect(key, function (v) { HS.key = v; renderHeat(); }); sel.style.maxWidth = '260px';
     cc.appendChild(h('div', { class: 'top', style: 'align-items:center;flex-wrap:wrap;margin-bottom:8px' }, [h('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, [h('span', { class: 'lbl' }, ['Calendar']), sel]), cread]));
-    var cbody = h('div', { style: 'display:flex;align-items:flex-start' }), clab = h('div', { style: 'flex:none' }); cbody.appendChild(clab); cbody.appendChild(cwrap); cc.appendChild(cbody); p.appendChild(cc);
+    var cbody = h('div', { style: 'display:flex;align-items:flex-start' }), clab = h('div', { style: 'flex:none' }); cbody.appendChild(clab); cbody.appendChild(cwrap); cc.appendChild(cbody); cc.setAttribute('data-key', 'single'); deck.appendChild(cc);
     var useBands = BANDED.indexOf(key) >= 0 && useBandsMode, cs = 13, gp = 2, lw = 30, tp = 22, W2 = cols.length * (cs + gp) + 4, H2 = tp + 7 * (cs + gp) + 2; clab.style.width = lw + 'px';
     var lsvg2 = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H2, width: lw, height: H2, class: 'hm' }); clab.appendChild(lsvg2); var svg2 = sv('svg', { viewBox: '0 0 ' + W2 + ' ' + H2, width: W2, height: H2, class: 'hm' }); cwrap.appendChild(svg2);
     var dv = []; cols.forEach(function (n) { for (var i = 0; i < 7; i++) { var v = (S.D[dayStr(n + i)] || {})[key]; if (v != null) dv.push(v); } });
@@ -1019,6 +1030,41 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       var lv = useBands && c.v != null ? band(S.byDate[c.d] || {}, key) : 'none'; cread.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no data' : fmtMetric(key, c.v) + (lv !== 'none' ? '  ' + LABEL[lv] : '')); }
     svg2.addEventListener('pointermove', move2); svg2.addEventListener('pointerdown', move2); setTimeout(function () { cwrap.scrollLeft = cwrap.scrollWidth; }, 0);
     cc.appendChild(h('div', { class: 'swatches', html: (useBands ? BANDSW : RELSW) + (BANDED.indexOf(key) < 0 && useBandsMode ? '<span style="margin-left:10px">No Ultrahuman range for this measure, so it is shaded relative to your usual.</span>' : '') + (mk.better ? '' : '<span style="margin-left:10px">No better or worse direction for this measure: teal is high, orange is low.</span>') }));
+    sortDeck(deck, 'health.heatOrder');
+  }
+
+  // Long-press (or drag the grip) to pick a card up, drag it up or down, release to drop. The order is remembered on this device.
+  function sortDeck(deck, storeKey) {
+    var saved = []; try { saved = JSON.parse(localStorage.getItem(storeKey) || '[]'); } catch (e) { saved = []; }
+    var cards = [].slice.call(deck.children), byKey = {}; cards.forEach(function (c) { byKey[c.getAttribute('data-key')] = c; });
+    saved.forEach(function (k) { if (byKey[k]) { deck.appendChild(byKey[k]); delete byKey[k]; } }); cards.forEach(function (c) { if (byKey[c.getAttribute('data-key')]) deck.appendChild(c); });
+    var order = function () { return [].map.call(deck.children, function (c) { return c.getAttribute('data-key'); }); };
+    var drag = null, press = null, raf = 0, lastY = 0, swallow = false;
+    function flip(fn) { var kids = [].slice.call(deck.children), before = kids.map(function (k) { return k.getBoundingClientRect().top; }); fn();
+      kids.forEach(function (k, i) { if (drag && k === drag.card) return; var dy = before[i] - k.getBoundingClientRect().top; if (Math.abs(dy) > 1 && k.animate) k.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'translateY(0)' }], { duration: 220, easing: 'cubic-bezier(.22,.8,.24,1)' }); }); }
+    function place() { if (!drag) return; var c = drag.card; c.style.transform = ''; var nat = c.getBoundingClientRect().top, want = lastY - drag.dy; c.style.transform = 'translateY(' + (want - nat) + 'px) scale(1.015)';
+      var mid = want + drag.h / 2, prev = c.previousElementSibling, next = c.nextElementSibling;
+      if (prev) { var pr = prev.getBoundingClientRect(); if (mid < pr.top + pr.height / 2) { flip(function () { deck.insertBefore(c, prev); }); place(); return; } }
+      if (next) { var nr = next.getBoundingClientRect(); if (mid > nr.top + nr.height / 2) { flip(function () { deck.insertBefore(c, next.nextSibling); }); place(); return; } } }
+    function loop() { if (!drag) return; var vh = window.innerHeight, edge = 80, dy = lastY < edge ? -Math.ceil((edge - lastY) / 6) : lastY > vh - edge ? Math.ceil((lastY - (vh - edge)) / 6) : 0; if (dy) window.scrollBy(0, dy); place(); raf = requestAnimationFrame(loop); }
+    function begin(card, y) { var r = card.getBoundingClientRect(); drag = { card: card, dy: y - r.top, h: r.height }; lastY = y; card.classList.add('dragging'); if (navigator.vibrate) { try { navigator.vibrate(12); } catch (e) { /* ignore */ } } document.body.classList.add('sorting'); raf = requestAnimationFrame(loop); }
+    function finish() { if (!drag) return; var c = drag.card; cancelAnimationFrame(raf); c.classList.remove('dragging'); document.body.classList.remove('sorting');
+      var from = c.getBoundingClientRect().top; c.style.transform = ''; var to = c.getBoundingClientRect().top; if (c.animate && Math.abs(from - to) > 1) c.animate([{ transform: 'translateY(' + (from - to) + 'px) scale(1.015)' }, { transform: 'translateY(0) scale(1)' }], { duration: 200, easing: 'ease-out' });
+      drag = null; swallow = true; setTimeout(function () { swallow = false; }, 350); try { localStorage.setItem(storeKey, JSON.stringify(order())); } catch (e) { /* ignore */ } }
+    function cancelPress() { if (press) { clearTimeout(press.t); press = null; } }
+    var interactive = function (t) { return t.closest && t.closest('select, input, button, a, label, textarea, .hscroll-skip'); };
+    function arm(card, x, y, ms) { cancelPress(); press = { card: card, x: x, y: y, t: setTimeout(function () { var q = press; press = null; if (q) begin(q.card, lastY || q.y); }, ms) }; lastY = y; }
+    [].slice.call(deck.children).forEach(function (card) {
+      var top = card.querySelector('.top'), grip = h('span', { class: 'grip', title: 'Press and hold anywhere on the card, or drag this, to move it', 'aria-label': 'Reorder' }, ['\u22EE\u22EE']); if (top && top.firstChild) top.firstChild.insertBefore(grip, top.firstChild.firstChild);
+      card.addEventListener('touchstart', function (e) { if (interactive(e.target) && !e.target.closest('.grip')) return; if (e.touches.length !== 1) { cancelPress(); return; } var t = e.touches[0]; arm(card, t.clientX, t.clientY, e.target.closest('.grip') ? 120 : 450); }, { passive: true });
+      card.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (!t) return; lastY = t.clientY; if (drag && drag.card === card) { e.preventDefault(); return; } if (press && Math.hypot(t.clientX - press.x, t.clientY - press.y) > 10) cancelPress(); }, { passive: false });
+      var tend = function () { cancelPress(); if (drag && drag.card === card) finish(); }; card.addEventListener('touchend', tend); card.addEventListener('touchcancel', tend);
+      card.addEventListener('mousedown', function (e) { if (e.button !== 0 || (interactive(e.target) && !e.target.closest('.grip'))) return; arm(card, e.clientX, e.clientY, e.target.closest('.grip') ? 0 : 380);
+        var mm = function (ev) { lastY = ev.clientY; if (press && Math.hypot(ev.clientX - press.x, ev.clientY - press.y) > 4 && !ev.target.closest('.grip') && !(press.grip)) cancelPress(); }, mu = function () { window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); cancelPress(); if (drag) finish(); };
+        window.addEventListener('mousemove', mm); window.addEventListener('mouseup', mu); });
+      card.addEventListener('click', function (e) { if (swallow) { e.stopPropagation(); e.preventDefault(); } }, true);
+    });
+    window.addEventListener('contextmenu', function (e) { if (drag) e.preventDefault(); });
   }
 
   // ================= Activity =================
