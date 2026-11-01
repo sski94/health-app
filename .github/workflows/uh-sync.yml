@@ -1,0 +1,29 @@
+name: Ultrahuman sync
+
+on:
+  schedule:
+    - cron: "17 7 * * *"    # every morning, after the ring has synced overnight data
+    - cron: "43 19 * * *"   # and every evening, to refresh the day's steps
+  workflow_dispatch: {}
+
+concurrency:
+  group: uh-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Sync Ultrahuman to Supabase
+        working-directory: sync
+        env:
+          UH_TOKEN: ${{ secrets.UH_TOKEN }}
+          UH_EMAIL: ${{ secrets.UH_EMAIL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 uh_sync.py
