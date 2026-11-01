@@ -928,12 +928,17 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
 
     // --- four full calendars, always shown: sleep, recovery, movement, activity (one cell per day, one column per week)
     var rangeDays = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; });
+    // all the scrolling heatmaps share one timeline: scroll any of them and the others follow to the same date
+    var linked = [], driver = {};
+    function link(wrap, d0, ppd) { var rec = { wrap: wrap, d0: d0, ppd: ppd }; linked.push(rec);
+      ['pointerdown', 'touchstart', 'wheel', 'mousedown'].forEach(function (ev) { wrap.addEventListener(ev, function () { driver = rec; }, { passive: true }); });
+      wrap.addEventListener('scroll', function () { if (driver && driver !== rec) return; var day = rec.d0 + wrap.scrollLeft / rec.ppd; linked.forEach(function (o) { if (o !== rec) o.wrap.scrollLeft = (day - o.d0) * o.ppd; }); }, { passive: true }); }
     function calCard(key, title) {
       var card = h('div', { class: 'card chartcard', style: 'margin-bottom:0' }), read = h('div', { class: 'read num' }), pn = pinned(card, title, read), foot = h('div', { class: 'swatches' }), isAct = key === 'activity', isDrink = key === 'over_pint';
       card.appendChild(foot);
       card.draw = function () {
         var gp = 2, lw = 28, tp = 38; pn.lab.style.width = lw + 'px';
-        var avail = pn.wrap.clientWidth || 240, cs = Math.max(8, Math.min(16, Math.floor(avail / cols.length) - gp)), pitch = cs + gp, W = cols.length * pitch + 4, H = tp + 7 * pitch + 2;
+        var avail = pn.wrap.clientWidth || 240, cs = Math.max(8, Math.min(16, Math.floor(avail / cols.length) - gp)), pitch = cs + gp, W = cols.length * pitch + 4, H = tp + 7 * pitch + 2; link(pn.wrap, cols[0], pitch / 7);
         var ls = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H, width: lw, height: H, class: 'hm' }); pn.lab.appendChild(ls); var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, class: 'hm' }); pn.wrap.appendChild(svg);
         ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach(function (t, i) { if (!t) return; var tx = sv('text', { x: lw - 5, y: tp + i * pitch + cs - 2, 'text-anchor': 'end' }, ls); tx.textContent = t; });
         var lm = '', lx = -99; cols.forEach(function (n, ci) { var tg = monthTag(n + 3), x = ci * pitch; if (tg !== lm && x - lx > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lx = x; } lm = tg; });
@@ -965,7 +970,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var sc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), sread = h('div', { class: 'read num' }), sp = pinned(sc, 'Sleep, recovery, movement, activity and drinking, day by day', sread); sc.setAttribute('data-key', 'strip'); deck.appendChild(sc);
     var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY'], ['over_pint', 'UNDER PINT']];
     var sLab = 84, sTop = 26, sRh = 24, sH = sTop + SR.length * sRh + 4; sp.lab.style.width = sLab + 'px'; var sAvail = sp.wrap.clientWidth || 240, scw = Math.max(6, Math.floor(sAvail / days.length)), sW = scw * days.length + 4;
-    var ssvg = sv('svg', { viewBox: '0 0 ' + sW + ' ' + sH, width: sW, height: sH, class: 'hm' }); sp.wrap.appendChild(ssvg); var slsvg = sv('svg', { viewBox: '0 0 ' + sLab + ' ' + sH, width: sLab, height: sH, class: 'hm' }); sp.lab.appendChild(slsvg);
+    var ssvg = sv('svg', { viewBox: '0 0 ' + sW + ' ' + sH, width: sW, height: sH, class: 'hm' }); sp.wrap.appendChild(ssvg); link(sp.wrap, dayNum(days[0]), scw); var slsvg = sv('svg', { viewBox: '0 0 ' + sLab + ' ' + sH, width: sLab, height: sH, class: 'hm' }); sp.lab.appendChild(slsvg);
     var stat = {}; SR.slice(0, 3).forEach(function (r) { var vv = days.map(function (d) { return S.D[d][r[0]]; }).filter(function (x) { return x != null; }), mu = avg(vv); stat[r[0]] = { mu: mu, sg: sd(vv, mu) || 1 }; });
     var lmS = '', lxS = -99; days.forEach(function (d, i) { var tg = monthTag(dayNum(d)), x = i * scw; if (tg !== lmS && x - lxS > 46) { var t = sv('text', { x: x, y: 10 }, ssvg); t.textContent = tg; lxS = x; } lmS = tg; });
     SR.forEach(function (r, ri) { var tx = sv('text', { x: sLab - 8, y: sTop + ri * sRh + sRh / 2 + 3, 'text-anchor': 'end' }, slsvg); tx.textContent = r[1];
@@ -991,7 +996,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var oc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), oread = h('div', { class: 'read num' }), op = pinned(oc, 'All measures, week by week', oread); oc.setAttribute('data-key', 'overview'); deck.appendChild(oc);
     var rows = HEAT_ROWS.filter(function (k) { return S.dates.some(function (d) { return S.D[d][k] != null; }); });
     var labelW = 118, topPad = 38, rh = 21, Hd = topPad + rows.length * rh + 4; op.lab.style.width = labelW + 'px'; var avail = op.wrap.clientWidth || 240, cw = Math.max(9, Math.floor(avail / cols.length)), Wd = cw * cols.length + 4;
-    var lsvg = sv('svg', { viewBox: '0 0 ' + labelW + ' ' + Hd, width: labelW, height: Hd, class: 'hm' }); op.lab.appendChild(lsvg); var svg = sv('svg', { viewBox: '0 0 ' + Wd + ' ' + Hd, width: Wd, height: Hd, class: 'hm' }); op.wrap.appendChild(svg); var info = [];
+    var lsvg = sv('svg', { viewBox: '0 0 ' + labelW + ' ' + Hd, width: labelW, height: Hd, class: 'hm' }); op.lab.appendChild(lsvg); var svg = sv('svg', { viewBox: '0 0 ' + Wd + ' ' + Hd, width: Wd, height: Hd, class: 'hm' }); op.wrap.appendChild(svg); link(op.wrap, cols[0], cw / 7); var info = [];
     var lastMonth = '', lastX = -99; cols.forEach(function (n, ci) { var tg = monthTag(n), x = ci * cw; if (tg !== lastMonth && x - lastX > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lastX = x; } lastMonth = tg; });
     rows.forEach(function (k, ri) {
       var m = MK[k], vals = cols.map(function (n) { var a = []; for (var i = 0; i < 7; i++) { var v = (S.D[dayStr(n + i)] || {})[k]; if (v != null) a.push(v); } return a.length >= 3 ? avg(a) : null; });
@@ -1015,7 +1020,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     cc.appendChild(h('div', { class: 'top', style: 'align-items:center;flex-wrap:wrap;margin-bottom:8px' }, [h('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, [h('span', { class: 'lbl' }, ['Calendar']), sel]), cread]));
     var cbody = h('div', { style: 'display:flex;align-items:flex-start' }), clab = h('div', { style: 'flex:none' }); cbody.appendChild(clab); cbody.appendChild(cwrap); cc.appendChild(cbody); cc.setAttribute('data-key', 'single'); deck.appendChild(cc);
     var useBands = BANDED.indexOf(key) >= 0 && useBandsMode, cs = 13, gp = 2, lw = 30, tp = 22, W2 = cols.length * (cs + gp) + 4, H2 = tp + 7 * (cs + gp) + 2; clab.style.width = lw + 'px';
-    var lsvg2 = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H2, width: lw, height: H2, class: 'hm' }); clab.appendChild(lsvg2); var svg2 = sv('svg', { viewBox: '0 0 ' + W2 + ' ' + H2, width: W2, height: H2, class: 'hm' }); cwrap.appendChild(svg2);
+    var lsvg2 = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H2, width: lw, height: H2, class: 'hm' }); clab.appendChild(lsvg2); var svg2 = sv('svg', { viewBox: '0 0 ' + W2 + ' ' + H2, width: W2, height: H2, class: 'hm' }); cwrap.appendChild(svg2); link(cwrap, cols[0], (cs + gp) / 7);
     var dv = []; cols.forEach(function (n) { for (var i = 0; i < 7; i++) { var v = (S.D[dayStr(n + i)] || {})[key]; if (v != null) dv.push(v); } });
     var mu2 = avg(dv), sg2 = sd(dv, mu2) || 1, cells = [];
     ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach(function (t, i) { if (!t) return; var tx = sv('text', { x: lw - 6, y: tp + i * (cs + gp) + cs - 2, 'text-anchor': 'end' }, lsvg2); tx.textContent = t; });
