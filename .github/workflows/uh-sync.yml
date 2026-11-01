@@ -26,4 +26,4 @@ jobs:
           UH_EMAIL: ${{ secrets.UH_EMAIL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 uh_sync.py
+        run: python3 -u uh_sync.py

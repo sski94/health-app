@@ -131,7 +131,7 @@ def main():
     have = supa.existing_dates()
     wanted = [d for d in daterange(start, today)
               if d.isoformat() not in have or (today - d).days < refresh]
-    print(f"{len(have)} days already stored; fetching {len(wanted)} day(s)")
+    print(f"{len(have)} days already stored; fetching {len(wanted)} day(s)", flush=True)
 
     daily, night, failed = [], [], []
     for d in wanted:
@@ -139,7 +139,7 @@ def main():
         s, body = http("GET", f"{UH_URL}?{q}", {"Authorization": token})
         if s != 200 or not isinstance(body, dict):
             failed.append((d.isoformat(), s))
-            print(f"  {d} failed: HTTP {s}")
+            print(f"  {d} failed: HTTP {s}", flush=True)
             continue
         row, n, ok = extract_obj(d.isoformat(), body)
         daily.append(prep_daily(row))
@@ -148,12 +148,13 @@ def main():
         if len(daily) >= 50:                      # flush as we go so a long backfill is resumable
             supa.upsert("health_uh_daily", daily, "date")
             supa.upsert("health_uh_night", night, "date")
+            print(f"  saved through {d}", flush=True)
             daily, night = [], []
         time.sleep(0.25)
     if daily:
         supa.upsert("health_uh_daily", daily, "date")
         supa.upsert("health_uh_night", night, "date")
-    print(f"done. {len(failed)} failed day(s): {failed[:10]}")
+    print(f"done. {len(failed)} failed day(s): {failed[:10]}", flush=True)
     if failed and len(failed) == len(wanted):
         sys.exit(1)
 
