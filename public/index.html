@@ -271,6 +271,7 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     { k: 'ride_km_7d', l: 'Ride km, last 7 days', u: 'km', f: r1, g: 'Training' },
     { k: 'active_min', l: 'Training time (day)', u: 'min', f: r0, sum: true, g: 'Training' },
     { k: 'active_min_7d', l: 'Training min, last 7 days', u: 'min', f: r0, g: 'Training' },
+    { k: 'activity', l: 'Activity day (1 = yes)', f: r0, sum: true, g: 'Training' },
     { k: 'climb_m', l: 'Climbing (day)', u: 'm', f: r0, sum: true, g: 'Training' },
     { k: 'mood', l: 'Mood', f: r1, better: 1, g: 'Check-in' },
     { k: 'stress', l: 'Stress', f: r1, better: -1, g: 'Check-in' },
@@ -282,9 +283,9 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
   // ================= State =================
   var S = { daily: [], byDate: {}, D: {}, dates: [], acts: [], events: [], checkins: {}, date: null, nightCache: {},
     trendKey: 'avg_hrv', range: 365, sm: 14, showEvents: true, sport: 'run', actSel: null,
-    cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' } };
-  try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; } catch (e) {}
-  function savePrefs() { try { localStorage.setItem('health.prefs', JSON.stringify({ sm: S.sm, showEvents: S.showEvents })); } catch (e) {} }
+    cmp: { x: 'run_km_7d', y: 'avg_hrv', mode: 'daily', lag: 1, range: 0 }, evSel: null, evWin: 60, heat: { key: 'sleep_score', range: 365, mode: 'bands' }, actByDate: {} };
+  try { var sv_ = JSON.parse(localStorage.getItem('health.prefs') || '{}'); if (sv_.sm) S.sm = sv_.sm; if (sv_.showEvents === false) S.showEvents = false; if (sv_.heatMode) S.heat.mode = sv_.heatMode; } catch (e) {}
+  function savePrefs() { try { localStorage.setItem('health.prefs', JSON.stringify({ sm: S.sm, showEvents: S.showEvents, heatMode: S.heat.mode })); } catch (e) {} }
 
   // ================= Helpers =================
   function $(id) { return document.getElementById(id); }
@@ -320,15 +321,16 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var sMin = sAct[0], sMax = sAct[sAct.length - 1], gMin = gAct[0];
     function covRun(d) { return (sMin && d >= sMin && d <= sMax) || (gMin && d >= gMin); }
     function covAll(d) { return sMin && d >= sMin && d <= sMax; }
-    var perDay = {};
-    S.acts.forEach(function (a) { var d = localDate(a.start_time), o = perDay[d] || (perDay[d] = { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0 }), km = (a.distance_m || 0) / 1000, mn = (a.moving_time_s || 0) / 60;
-      var k = sportKind(a); if (k === 'run') o.run_km += km; if (k === 'ride') o.ride_km += km; o.active_min += mn; o.climb_m += Number(a.elevation_gain_m || 0); });
+    function covAny(d) { return covAll(d) || (gMin && d >= gMin); }
+    var perDay = {}; S.actByDate = {};
+    S.acts.forEach(function (a) { var d = localDate(a.start_time), o = perDay[d] || (perDay[d] = { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }), km = (a.distance_m || 0) / 1000, mn = (a.moving_time_s || 0) / 60;
+      (S.actByDate[d] || (S.actByDate[d] = [])).push(a); o.n++; var k = sportKind(a); if (k === 'run') o.run_km += km; if (k === 'ride') o.ride_km += km; o.active_min += mn; o.climb_m += Number(a.elevation_gain_m || 0); });
     var n0 = dayNum(first), n1 = dayNum(last), byDate = S.byDate;
     for (var n = n0; n <= n1; n++) { var d = dayStr(n), u = byDate[d] || {}, o = {};
       MET.forEach(function (m) { if (u[m.k] != null && !isNaN(Number(u[m.k]))) o[m.k] = Number(u[m.k]); });
       if (u.bedtime_start) { var p = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_start)), hh = +p.find(function (x) { return x.type === 'hour'; }).value % 24, mm = +p.find(function (x) { return x.type === 'minute'; }).value; o.bedtime = hh + mm / 60 + (hh < 14 ? 24 : 0); }
       if (u.bedtime_end) { var p2 = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: u.timezone || TZ }).formatToParts(new Date(u.bedtime_end)); o.wake = (+p2.find(function (x) { return x.type === 'hour'; }).value % 24) + (+p2.find(function (x) { return x.type === 'minute'; }).value) / 60; }
-      var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0 };
+      var pd = perDay[d] || { run_km: 0, ride_km: 0, active_min: 0, climb_m: 0, n: 0 }; o.activity = covAny(d) ? (pd.n > 0 ? 1 : 0) : null;
       if (covRun(d)) o.run_km = pd.run_km;
       if (covAll(d)) { o.ride_km = pd.ride_km; o.active_min = pd.active_min; o.climb_m = pd.climb_m; }
       var ci = S.checkins[d]; if (ci) { if (ci.mood != null) o.mood = ci.mood; if (ci.stress != null) o.stress = ci.stress; if (ci.energy != null) o.energy = ci.energy; }
@@ -585,49 +587,81 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     S.events.forEach(function (e) { var f = (dayNum(e.date) - cols[0]) / 7; if (f < 0 || f >= cols.length) return; var x = x0 + f * cw;
       sv('line', { x1: x, x2: x, y1: y0, y2: y1, stroke: 'var(--accent2)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, svg);
       var t = sv('text', { x: x + 3, y: y0 - 2, class: 'ev' }, svg); t.textContent = e.label.length > 22 ? e.label.slice(0, 21) + '…' : e.label; }); }
+  function weekLevel(r_days, key) { // dominant Ultrahuman level across the days of a week (opt=2, good=1, bad=0)
+    var vals = []; r_days.forEach(function (d) { var lv = band(S.byDate[d] || {}, key); if (lv !== 'none') vals.push(lv === 'opt' ? 2 : lv === 'good' ? 1 : 0); }); if (vals.length < 3) return 'none'; var m = avg(vals); return m >= 1.5 ? 'opt' : m >= 0.5 ? 'good' : 'bad'; }
+  function heatEventLinesD(svg, d0, n, cw, y0, y1) { if (!S.showEvents) return;
+    S.events.forEach(function (e) { var f = dayNum(e.date) - d0; if (f < 0 || f >= n) return; var x = f * cw + cw / 2;
+      sv('line', { x1: x, x2: x, y1: y0, y2: y1, stroke: 'var(--accent2)', 'stroke-width': 1.3, 'stroke-dasharray': '3 3' }, svg);
+      var t = sv('text', { x: x + 3, y: y0 - 2, class: 'ev' }, svg); t.textContent = e.label.length > 22 ? e.label.slice(0, 21) + '\u2026' : e.label; }); }
   function renderHeat() {
     var p = $('p-heat'), HS = S.heat; p.innerHTML = '';
-    p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Heatmap']), h('div', { class: 'sub' }, ['Everything over time at a glance. Green is better than your usual, pink is worse.'])])]));
+    p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, ['Heatmap']), h('div', { class: 'sub' }, ['Everything over time at a glance'])])]));
     var top = h('div', { class: 'card ctl' });
     [[90, '3M'], [180, '6M'], [365, '1Y'], [0, 'All']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (HS.range === a[0] ? ' on' : ''), onclick: function () { HS.range = a[0]; renderHeat(); } }, [a[1]])); });
+    top.appendChild(h('span', { class: 'sub', style: 'margin-left:14px' }, ['Colour by']));
+    [['bands', 'Ultrahuman ranges'], ['relative', 'Change vs my usual']].forEach(function (a) { top.appendChild(h('button', { class: 'chip' + (HS.mode === a[0] ? ' on' : ''), onclick: function () { HS.mode = a[0]; savePrefs(); renderHeat(); } }, [a[1]])); });
     var evBox = h('input', { type: 'checkbox', style: 'width:auto' }); evBox.checked = S.showEvents; evBox.addEventListener('change', function () { S.showEvents = evBox.checked; savePrefs(); renderHeat(); });
     top.appendChild(h('label', { class: 'sub', style: 'display:flex;align-items:center;gap:6px;margin-left:auto' }, [evBox, 'Events'])); p.appendChild(top);
     var cols = weekCols(HS.range); if (!cols.length) { p.appendChild(h('div', { class: 'card empty' }, ['No data yet.'])); return; }
+    var useBandsMode = HS.mode === 'bands', lastDay = dayNum(S.dates[S.dates.length - 1]);
+    var RELSW = '<span>worse than usual</span><i style="background:var(--bad);opacity:.9"></i><i style="background:var(--bad);opacity:.5"></i><i style="background:var(--fill)"></i><i style="background:var(--opt);opacity:.5"></i><i style="background:var(--opt);opacity:.9"></i><span>better than usual</span>';
+    var BANDSW = '<i style="background:var(--opt)"></i>Optimal<i style="background:var(--good)"></i>Good<i style="background:var(--bad)"></i>Needs attention<i style="background:var(--fill)"></i>No data';
+    function pinned(card, title, read) { var body = h('div', { style: 'display:flex;align-items:flex-start' }), lab = h('div', { style: 'flex:none' }), wrap = h('div', { class: 'hscroll', style: 'flex:1;min-width:0' });
+      card.appendChild(h('div', { class: 'top' }, [h('span', { class: 'lbl' }, [title]), read])); body.appendChild(lab); body.appendChild(wrap); card.appendChild(body); return { lab: lab, wrap: wrap }; }
 
-    // --- overview: rows are measures, columns are weeks
-    var oc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), oread = h('div', { class: 'read num' }), owrap = h('div', { class: 'hscroll' });
-    oc.appendChild(h('div', { class: 'top' }, [h('span', { class: 'lbl' }, ['All measures, week by week']), oread])); var obody = h('div', { style: 'display:flex;align-items:flex-start' }), olab = h('div', { style: 'flex:none' }); owrap.style.flex = '1'; owrap.style.minWidth = '0'; obody.appendChild(olab); obody.appendChild(owrap); oc.appendChild(obody); p.appendChild(oc);
+    // --- always-on strip: sleep, recovery, movement and whether there was an activity, day by day
+    var sc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), sread = h('div', { class: 'read num' }), sp = pinned(sc, 'Sleep, recovery, movement and activity, day by day', sread); p.appendChild(sc);
+    var days = S.dates.filter(function (d) { return !HS.range || dayNum(d) >= lastDay - HS.range; }), SR = [['sleep_score', 'SLEEP'], ['recovery_index', 'RECOVERY'], ['movement_index', 'MOVEMENT'], ['activity', 'ACTIVITY']];
+    var sLab = 84, sTop = 26, sRh = 24, sH = sTop + SR.length * sRh + 4; sp.lab.style.width = sLab + 'px'; var sAvail = sp.wrap.clientWidth || 240, scw = Math.max(6, Math.floor(sAvail / days.length)), sW = scw * days.length + 4;
+    var ssvg = sv('svg', { viewBox: '0 0 ' + sW + ' ' + sH, width: sW, height: sH, class: 'hm' }); sp.wrap.appendChild(ssvg); var slsvg = sv('svg', { viewBox: '0 0 ' + sLab + ' ' + sH, width: sLab, height: sH, class: 'hm' }); sp.lab.appendChild(slsvg);
+    var stat = {}; SR.slice(0, 3).forEach(function (r) { var vv = days.map(function (d) { return S.D[d][r[0]]; }).filter(function (x) { return x != null; }), mu = avg(vv); stat[r[0]] = { mu: mu, sg: sd(vv, mu) || 1 }; });
+    var lmS = '', lxS = -99; days.forEach(function (d, i) { var tg = monthTag(dayNum(d)), x = i * scw; if (tg !== lmS && x - lxS > 46) { var t = sv('text', { x: x, y: 10 }, ssvg); t.textContent = tg; lxS = x; } lmS = tg; });
+    SR.forEach(function (r, ri) { var tx = sv('text', { x: sLab - 8, y: sTop + ri * sRh + sRh / 2 + 3, 'text-anchor': 'end' }, slsvg); tx.textContent = r[1];
+      days.forEach(function (d, i) { var v = S.D[d][r[0]], f, extra = {};
+        if (r[0] === 'activity') { if (v === 1) f = ['var(--teal)', 1]; else if (v === 0) f = ['var(--fill)', 1]; else { f = ['none', 0]; extra = { stroke: 'var(--c-grid)', 'stroke-dasharray': '2 2', 'stroke-width': 1 }; } }
+        else if (v == null) f = ['var(--fill)', 1]; else if (useBandsMode) f = [COLORS[scoreLevel(v)], 1]; else f = heatFill((v - stat[r[0]].mu) / stat[r[0]].sg, 1);
+        var at = { x: i * scw + (extra.stroke ? .5 : 0), y: sTop + ri * sRh + 1, width: scw - 1, height: sRh - 2, rx: 2.5, fill: f[0], 'fill-opacity': f[1] }; for (var k in extra) at[k] = extra[k]; sv('rect', at, ssvg); }); });
+    heatEventLinesD(ssvg, dayNum(days[0]), days.length, scw, sTop - 2, sH - 3);
+    var shov = sv('rect', { width: scw - 1, height: sRh - 2, rx: 2.5, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, ssvg);
+    function sMove(ev) { var r = ssvg.getBoundingClientRect(), k = sW / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, i = Math.floor(x / scw), ri = Math.floor((y - sTop) / sRh);
+      if (i < 0 || i >= days.length || ri < 0 || ri >= SR.length) { shov.setAttribute('opacity', 0); return; } var d = days[i]; shov.setAttribute('x', i * scw); shov.setAttribute('y', sTop + ri * sRh + 1); shov.setAttribute('opacity', 1);
+      var D = S.D[d], row = S.byDate[d] || {}, pick = SR[ri][0], txt;
+      if (pick === 'activity') { var al = S.actByDate[d] || []; txt = D.activity == null ? 'no activity source for this day' : D.activity ? al.map(function (a) { return (a.name || 'Activity') + ' ' + ((a.distance_m || 0) / 1000).toFixed(1) + ' km'; }).join(', ') : 'no activity recorded'; txt = 'Activity: ' + txt; }
+      else { var v = D[pick], lv = band(row, pick); txt = SR[ri][1].charAt(0) + SR[ri][1].slice(1).toLowerCase() + ': ' + (v == null ? 'no data' : v + (lv !== 'none' ? '  ' + LABEL[lv] : '')); }
+      sread.textContent = fmtDay(d) + '  ' + txt; }
+    ssvg.addEventListener('pointermove', sMove); ssvg.addEventListener('pointerdown', sMove); setTimeout(function () { sp.wrap.scrollLeft = sp.wrap.scrollWidth; }, 0);
+    sc.appendChild(h('div', { class: 'swatches', html: (useBandsMode ? BANDSW : RELSW) + '<span style="margin-left:10px"><i style="background:var(--teal)"></i> activity recorded <i style="background:var(--fill)"></i> none <i style="background:none;border:1px dashed var(--c-grid)"></i> no source for that day</span>' }));
+    sc.appendChild(h('div', { class: 'note' }, ['Activity is any Strava or Garmin activity. Strava covers Feb 2025 to 24 May 2026; Garmin runs only since 10 Aug 2026, so rides after May are not recorded and the gap between is marked as no source.']));
+
+    // --- overview: all measures by week
+    var oc = h('div', { class: 'card chartcard', style: 'margin-bottom:10px' }), oread = h('div', { class: 'read num' }), op = pinned(oc, 'All measures, week by week', oread); p.appendChild(oc);
     var rows = HEAT_ROWS.filter(function (k) { return S.dates.some(function (d) { return S.D[d][k] != null; }); });
-    var labelW = 118, topPad = 28, rh = 21, Hd = topPad + rows.length * rh + 4; olab.style.width = labelW + 'px'; var avail = owrap.clientWidth || 240, cw = Math.max(9, Math.floor(avail / cols.length)), Wd = cw * cols.length + 4;
-    var lsvg = sv('svg', { viewBox: '0 0 ' + labelW + ' ' + Hd, width: labelW, height: Hd, class: 'hm' }); olab.appendChild(lsvg);
-    var svg = sv('svg', { viewBox: '0 0 ' + Wd + ' ' + Hd, width: Wd, height: Hd, class: 'hm' }); owrap.appendChild(svg); var info = [];
-    var lastMonth = '', lastX = -99;
-    cols.forEach(function (n, ci) { var tg = monthTag(n), x = ci * cw; if (tg !== lastMonth && x - lastX > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lastX = x; } lastMonth = tg; });
+    var labelW = 118, topPad = 28, rh = 21, Hd = topPad + rows.length * rh + 4; op.lab.style.width = labelW + 'px'; var avail = op.wrap.clientWidth || 240, cw = Math.max(9, Math.floor(avail / cols.length)), Wd = cw * cols.length + 4;
+    var lsvg = sv('svg', { viewBox: '0 0 ' + labelW + ' ' + Hd, width: labelW, height: Hd, class: 'hm' }); op.lab.appendChild(lsvg); var svg = sv('svg', { viewBox: '0 0 ' + Wd + ' ' + Hd, width: Wd, height: Hd, class: 'hm' }); op.wrap.appendChild(svg); var info = [];
+    var lastMonth = '', lastX = -99; cols.forEach(function (n, ci) { var tg = monthTag(n), x = ci * cw; if (tg !== lastMonth && x - lastX > 46) { var t = sv('text', { x: x, y: 10 }, svg); t.textContent = tg; lastX = x; } lastMonth = tg; });
     rows.forEach(function (k, ri) {
       var m = MK[k], vals = cols.map(function (n) { var a = []; for (var i = 0; i < 7; i++) { var v = (S.D[dayStr(n + i)] || {})[k]; if (v != null) a.push(v); } return a.length >= 3 ? avg(a) : null; });
-      var vv = vals.filter(function (x) { return x != null; }), mu = avg(vv), sg = sd(vv, mu) || 1, tx = sv('text', { x: labelW - 8, y: topPad + ri * rh + rh / 2 + 3, 'text-anchor': 'end' }, lsvg);
-      tx.textContent = m.l.length > 19 ? m.l.slice(0, 18) + '…' : m.l; info[ri] = [];
-      vals.forEach(function (v, ci) { var z = v == null ? 0 : (v - mu) / sg, f = v == null ? ['var(--fill)', 1] : heatFill(z, m.better);
-        sv('rect', { x: ci * cw, y: topPad + ri * rh + 1, width: cw - 1, height: rh - 2, rx: 2.5, fill: f[0], 'fill-opacity': f[1] }, svg); info[ri][ci] = { n: cols[ci], v: v, z: z }; }); });
+      var vv = vals.filter(function (x) { return x != null; }), mu = avg(vv), sg = sd(vv, mu) || 1, banded = useBandsMode && BANDED.indexOf(k) >= 0, tx = sv('text', { x: labelW - 8, y: topPad + ri * rh + rh / 2 + 3, 'text-anchor': 'end' }, lsvg);
+      tx.textContent = (m.l.length > 19 ? m.l.slice(0, 18) + '…' : m.l); info[ri] = [];
+      vals.forEach(function (v, ci) { var z = v == null ? 0 : (v - mu) / sg, f, lv = 'none';
+        if (v == null) f = ['var(--fill)', 1]; else if (banded) { var ds = []; for (var i = 0; i < 7; i++) ds.push(dayStr(cols[ci] + i)); lv = (k === 'sleep_score' || k === 'recovery_index' || k === 'movement_index') ? scoreLevel(v) : weekLevel(ds, k); f = lv === 'none' ? heatFill(z, m.better) : [COLORS[lv], 1]; } else f = heatFill(z, m.better);
+        sv('rect', { x: ci * cw, y: topPad + ri * rh + 1, width: cw - 1, height: rh - 2, rx: 2.5, fill: f[0], 'fill-opacity': f[1] }, svg); info[ri][ci] = { n: cols[ci], v: v, z: z, lv: lv }; }); });
     heatEventLines(svg, cols, 0, cw, topPad - 2, Hd - 3);
     var hov = sv('rect', { width: cw - 1, height: rh - 2, rx: 2.5, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg);
-    var move = function (ev) { var r = svg.getBoundingClientRect(), sc = Wd / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * sc, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * sc,
-        ci = Math.floor(x / cw), ri = Math.floor((y - topPad) / rh);
+    function move(ev) { var r = svg.getBoundingClientRect(), k = Wd / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, ci = Math.floor(x / cw), ri = Math.floor((y - topPad) / rh);
       if (ci < 0 || ci >= cols.length || ri < 0 || ri >= rows.length) { hov.setAttribute('opacity', 0); return; } var c = info[ri][ci]; hov.setAttribute('x', ci * cw); hov.setAttribute('y', topPad + ri * rh + 1); hov.setAttribute('opacity', 1);
-      oread.textContent = 'w/c ' + fmtShort(c.n) + '  ' + MK[rows[ri]].l + '  ' + (c.v == null ? 'no data' : fmtMetric(rows[ri], c.v) + '  (' + (c.z >= 0 ? '+' : '') + c.z.toFixed(1) + ' sd)'); };
-    svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); setTimeout(function () { owrap.scrollLeft = owrap.scrollWidth; }, 0);
-    oc.appendChild(h('div', { class: 'swatches', html: '<span>worse than usual</span><i style="background:var(--bad);opacity:.9"></i><i style="background:var(--bad);opacity:.5"></i><i style="background:var(--fill)"></i><i style="background:var(--opt);opacity:.5"></i><i style="background:var(--opt);opacity:.9"></i><span>better than usual</span><span style="margin-left:10px">Each row is compared with its own average over the period shown. Grey means no data.</span>' }));
+      oread.textContent = 'w/c ' + fmtShort(c.n) + '  ' + MK[rows[ri]].l + '  ' + (c.v == null ? 'no data' : fmtMetric(rows[ri], c.v) + (c.lv !== 'none' ? '  ' + LABEL[c.lv] : '  (' + (c.z >= 0 ? '+' : '') + c.z.toFixed(1) + ' sd)')); }
+    svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); setTimeout(function () { op.wrap.scrollLeft = op.wrap.scrollWidth; }, 0);
+    oc.appendChild(h('div', { class: 'swatches', html: (useBandsMode ? BANDSW : RELSW) }));
+    oc.appendChild(h('div', { class: 'note' }, [useBandsMode ? 'Weekly cells use Ultrahuman\'s ranges where they exist (sleep, recovery, movement, total sleep, restorative, efficiency). Measures with no Ultrahuman range, such as HRV, resting HR, steps, bedtime and training load, stay shaded relative to your own average.' : 'Each row is compared with its own average over the period shown. Grey means no data.']));
 
     // --- calendar: one measure, day by day
-    var key = HS.key, mk = MK[key], cc = h('div', { class: 'card chartcard' }), cread = h('div', { class: 'read num' }), cwrap = h('div', { class: 'hscroll' });
+    var key = HS.key, mk = MK[key], cc = h('div', { class: 'card chartcard' }), cread = h('div', { class: 'read num' }), cwrap = h('div', { class: 'hscroll', style: 'flex:1;min-width:0' });
     var sel = metricSelect(key, function (v) { HS.key = v; renderHeat(); }); sel.style.maxWidth = '260px';
-    var modeChips = h('div', { class: 'chips', style: 'margin:0' });
-    if (BANDED.indexOf(key) >= 0) [['bands', 'Ultrahuman bands'], ['relative', 'Relative to my usual']].forEach(function (a) { modeChips.appendChild(h('button', { class: 'chip' + (HS.mode === a[0] ? ' on' : ''), onclick: function () { HS.mode = a[0]; renderHeat(); } }, [a[1]])); });
-    cc.appendChild(h('div', { class: 'top', style: 'align-items:center;flex-wrap:wrap;margin-bottom:8px' }, [h('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, [h('span', { class: 'lbl' }, ['Calendar']), sel, modeChips]), cread]));
-    var cbody = h('div', { style: 'display:flex;align-items:flex-start' }), clab = h('div', { style: 'flex:none' }); cwrap.style.flex = '1'; cwrap.style.minWidth = '0'; cbody.appendChild(clab); cbody.appendChild(cwrap); cc.appendChild(cbody); p.appendChild(cc);
-    var useBands = BANDED.indexOf(key) >= 0 && HS.mode === 'bands', cs = 13, gp = 2, lw = 30, tp = 22, lastDay = dayNum(S.dates[S.dates.length - 1]), W2 = cols.length * (cs + gp) + 4, H2 = tp + 7 * (cs + gp) + 2; clab.style.width = lw + 'px';
-    var lsvg2 = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H2, width: lw, height: H2, class: 'hm' }); clab.appendChild(lsvg2);
-    var svg2 = sv('svg', { viewBox: '0 0 ' + W2 + ' ' + H2, width: W2, height: H2, class: 'hm' }); cwrap.appendChild(svg2);
+    cc.appendChild(h('div', { class: 'top', style: 'align-items:center;flex-wrap:wrap;margin-bottom:8px' }, [h('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, [h('span', { class: 'lbl' }, ['Calendar']), sel]), cread]));
+    var cbody = h('div', { style: 'display:flex;align-items:flex-start' }), clab = h('div', { style: 'flex:none' }); cbody.appendChild(clab); cbody.appendChild(cwrap); cc.appendChild(cbody); p.appendChild(cc);
+    var useBands = BANDED.indexOf(key) >= 0 && useBandsMode, cs = 13, gp = 2, lw = 30, tp = 22, W2 = cols.length * (cs + gp) + 4, H2 = tp + 7 * (cs + gp) + 2; clab.style.width = lw + 'px';
+    var lsvg2 = sv('svg', { viewBox: '0 0 ' + lw + ' ' + H2, width: lw, height: H2, class: 'hm' }); clab.appendChild(lsvg2); var svg2 = sv('svg', { viewBox: '0 0 ' + W2 + ' ' + H2, width: W2, height: H2, class: 'hm' }); cwrap.appendChild(svg2);
     var dv = []; cols.forEach(function (n) { for (var i = 0; i < 7; i++) { var v = (S.D[dayStr(n + i)] || {})[key]; if (v != null) dv.push(v); } });
     var mu2 = avg(dv), sg2 = sd(dv, mu2) || 1, cells = [];
     ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'].forEach(function (t, i) { if (!t) return; var tx = sv('text', { x: lw - 6, y: tp + i * (cs + gp) + cs - 2, 'text-anchor': 'end' }, lsvg2); tx.textContent = t; });
@@ -637,14 +671,12 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
       sv('rect', { x: ci * (cs + gp), y: tp + i * (cs + gp), width: cs, height: cs, rx: 3, fill: f[0], 'fill-opacity': f[1] }, svg2); cells.push({ x: ci * (cs + gp), y: tp + i * (cs + gp), d: d, v: v }); } });
     heatEventLines(svg2, cols, 0, cs + gp, tp - 2, H2 - 2);
     var hov2 = sv('rect', { width: cs, height: cs, rx: 3, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 1.5, opacity: 0 }, svg2);
-    var move2 = function (ev) { var r = svg2.getBoundingClientRect(), sc = W2 / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * sc, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * sc, ci = Math.floor(x / (cs + gp)), ri = Math.floor((y - tp) / (cs + gp));
+    function move2(ev) { var r = svg2.getBoundingClientRect(), k = W2 / r.width, x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * k, y = ((ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top) * k, ci = Math.floor(x / (cs + gp)), ri = Math.floor((y - tp) / (cs + gp));
       var c = cells.find(function (q) { return q.x === ci * (cs + gp) && q.y === tp + ri * (cs + gp); }); if (!c) { hov2.setAttribute('opacity', 0); return; } hov2.setAttribute('x', c.x); hov2.setAttribute('y', c.y); hov2.setAttribute('opacity', 1);
-      var lv = useBands && c.v != null ? band(S.byDate[c.d] || {}, key) : 'none'; cread.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no data' : fmtMetric(key, c.v) + (lv !== 'none' ? '  ' + LABEL[lv] : '')); };
+      var lv = useBands && c.v != null ? band(S.byDate[c.d] || {}, key) : 'none'; cread.textContent = fmtDay(c.d) + '  ' + (c.v == null ? 'no data' : fmtMetric(key, c.v) + (lv !== 'none' ? '  ' + LABEL[lv] : '')); }
     svg2.addEventListener('pointermove', move2); svg2.addEventListener('pointerdown', move2); setTimeout(function () { cwrap.scrollLeft = cwrap.scrollWidth; }, 0);
-    cc.appendChild(h('div', { class: 'swatches', html: useBands ? '<i style="background:var(--opt)"></i>Optimal<i style="background:var(--good)"></i>Good<i style="background:var(--bad)"></i>Needs attention<i style="background:var(--fill)"></i>No data or no band'
-      : '<span>worse than usual</span><i style="background:var(--bad);opacity:.9"></i><i style="background:var(--bad);opacity:.5"></i><i style="background:var(--fill)"></i><i style="background:var(--opt);opacity:.5"></i><i style="background:var(--opt);opacity:.9"></i><span>better than usual</span>' + (mk.better ? '' : '<span style="margin-left:10px">No better or worse direction for this measure: teal is high, orange is low.</span>') }));
+    cc.appendChild(h('div', { class: 'swatches', html: (useBands ? BANDSW : RELSW) + (BANDED.indexOf(key) < 0 && useBandsMode ? '<span style="margin-left:10px">No Ultrahuman range for this measure, so it is shaded relative to your usual.</span>' : '') + (mk.better ? '' : '<span style="margin-left:10px">No better or worse direction for this measure: teal is high, orange is low.</span>') }));
   }
-
 
   // ================= Activity =================
   function weekly(key) { var W = {}; S.dates.forEach(function (d) { var n = dayNum(d), mon = n - ((n + 3) % 7), v = S.D[d][key]; if (v == null) return; (W[mon] || (W[mon] = { s: 0, c: 0 })); W[mon].s += v; W[mon].c++; });
