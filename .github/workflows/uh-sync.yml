@@ -2,8 +2,7 @@ name: Ultrahuman sync
 
 on:
   schedule:
-    - cron: "17 7 * * *"    # every morning, after the ring has synced overnight data
-    - cron: "43 19 * * *"   # and every evening, to refresh the day's steps
+    - cron: "17,47 * * * *"   # every half hour: GitHub often delays scheduled runs by hours, so ask often
   workflow_dispatch: {}
 
 concurrency:

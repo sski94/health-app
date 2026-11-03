@@ -621,6 +621,10 @@ svg.hm text.ev { fill: var(--ink-soft); paint-order: stroke; stroke: var(--surfa
     var last = S.daily.length ? S.daily[S.daily.length - 1].date : S.date; if (!S.byDate[addDays(S.date, 1)]) next.setAttribute('disabled', '');
     p.appendChild(h('div', { class: 'head' }, [h('div', {}, [h('h1', {}, [S.date === last ? 'Today' : 'Day']), h('div', { class: 'sub' }, [fmtDay(S.date)])]), h('div', { class: 'datebar' }, [prev, next])]));
     if (!r) { p.appendChild(h('div', { class: 'card empty' }, ['No data for this day yet.'])); return; }
+    var newest = S.daily.length ? S.daily[S.daily.length - 1] : null; if (newest && newest.date !== S.date && newest.sleep_score == null && S.date === S.daily.filter(function (x) { return x.sleep_score != null; }).slice(-1)[0].date) {
+      var at = newest.fetched_at ? new Date(newest.fetched_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      p.appendChild(h('div', { class: 'note', style: 'margin:0 3px 10px;color:var(--bad)' }, ['Showing ' + fmtDay(S.date) + '. ' + fmtDay(newest.date) + ' has not come through from Ultrahuman yet (last checked ' + at + '). Syncs run every half hour once GitHub starts them; you can also run \u201CUltrahuman sync\u201D from the repo\u2019s Actions tab.']));
+    }
     var sc = h('div', { class: 'scores' }); ['sleep_score', 'recovery_index', 'movement_index'].forEach(function (k) { var lv = band(r, k);
       var sp0 = spark(S.dates.filter(function (x) { return x <= S.date && x > addDays(S.date, -45); }).map(function (x) { return S.D[x][k]; }), lv === 'none' ? 'var(--teal)' : COLORS[lv]);
       sc.appendChild(h('button', { class: 'card score', onclick: function () { S.trendKey = k; selectTab('trends'); } }, [h('div', { class: 'lbl' }, [MK[k].l]), h('div', { class: 'big num', style: 'color:' + (lv === 'none' ? 'var(--ink)' : COLORS[lv]) }, [r[k] == null ? '-' : String(r[k])]), h('div', { class: 'tag', html: dot(lv) + ' ' + esc(LABEL[lv] || '') }), h('div', { class: 'scorespark', html: sp0 })])); });
